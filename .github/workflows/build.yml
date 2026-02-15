@@ -27,5 +27,5 @@ jobs:
     - name: Upload mod
       uses: actions/upload-artifact@v4
       with:
-        name: nations-mod
+        name: FM_nations-mod
         path: build/libs/*.jar
