@@ -4,4 +4,5 @@ pluginManagement {
         maven { url = 'https://maven.minecraftforge.net/' }
     }
 }
-rootProject.name = 'nations'
+rootProject.name = 'FM_nations'
+
