@@ -5,7 +5,6 @@ import com.nations.data.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.fml.ModList;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -20,47 +19,43 @@ public class DynmapIntegration {
             NationsMod.LOGGER.info("DynMap не найден — интеграция отключена");
             return;
         }
-        NationsMod.LOGGER.info("DynMap обнаружен. Попытка подключения к API...");
+        NationsMod.LOGGER.info("DynMap обнаружен. Подключение через API Bridge...");
     }
 
     private static void tryConnect() {
-        if (enabled && markerAPI != null) return;
+        if (enabled) return;
 
         try {
-            // В Forge Dynmap API доступен через org.dynmap.DynmapCommonAPIListener.api
+            // Пытаемся получить API через официальный листенер Dynmap
             Class<?> apiListenerClass = Class.forName("org.dynmap.DynmapCommonAPIListener");
-            Field apiField = apiListenerClass.getDeclaredField("api");
-            apiField.setAccessible(true);
-            Object api = apiField.get(null);
+            Method getApiMethod = apiListenerClass.getMethod("getApi");
+            Object api = getApiMethod.invoke(null);
 
             if (api != null) {
-                Method getMarkerAPIMethod = api.getClass().getMethod("getMarkerAPI");
-                markerAPI = getMarkerAPIMethod.invoke(api);
+                Method getMarkerAPI = api.getClass().getMethod("getMarkerAPI");
+                markerAPI = getMarkerAPI.invoke(api);
                 
                 if (markerAPI != null) {
                     setupMarkerSets();
                     enabled = true;
-                    NationsMod.LOGGER.info("DynMap интеграция успешно активирована!");
+                    NationsMod.LOGGER.info("DynMap интеграция успешно запущена через API Bridge!");
                 }
             }
         } catch (Exception e) {
-            // Если через статический доступ не вышло, попробуем через Core
+            // Если не вышло, пробуем через Core напрямую (для версии 3.7+)
             try {
                 Class<?> coreClass = Class.forName("org.dynmap.DynmapCore");
-                Field field = coreClass.getDeclaredField("instance");
-                field.setAccessible(true);
-                Object core = field.get(null);
+                Object core = coreClass.getField("instance").get(null);
                 if (core != null) {
-                    Method getMarkerAPI = core.getClass().getMethod("getMarkerAPI");
-                    markerAPI = getMarkerAPI.invoke(core);
+                    markerAPI = core.getClass().getMethod("getMarkerAPI").invoke(core);
                     if (markerAPI != null) {
                         setupMarkerSets();
                         enabled = true;
-                        NationsMod.LOGGER.info("DynMap интеграция активирована через Core!");
+                        NationsMod.LOGGER.info("DynMap интеграция запущена через Core Instance!");
                     }
                 }
             } catch (Exception e2) {
-                // Молчим, чтобы не спамить в лог каждую секунду
+                // Ждем следующего тика
             }
         }
     }
@@ -69,21 +64,17 @@ public class DynmapIntegration {
         Method getSet = markerAPI.getClass().getMethod("getMarkerSet", String.class);
         Object existing = getSet.invoke(markerAPI, "nations.towns");
         if (existing != null) {
-            Method deleteSet = existing.getClass().getMethod("deleteMarkerSet");
-            deleteSet.invoke(existing);
+            existing.getClass().getMethod("deleteMarkerSet").invoke(existing);
         }
 
         Method createSet = markerAPI.getClass().getMethod("createMarkerSet", 
             String.class, String.class, Set.class, boolean.class);
         
-        // nations.towns, Название в списке слоев, иконки (null), не скрывать по умолчанию
         townMarkerSet = createSet.invoke(markerAPI, "nations.towns", "Города и Нации", null, false);
     }
 
     public static void updateAllMarkers() {
-        if (!enabled) {
-            tryConnect();
-        }
+        if (!enabled) tryConnect();
         if (!enabled || townMarkerSet == null) return;
 
         try {
@@ -92,16 +83,17 @@ public class DynmapIntegration {
                 drawTown(town);
             }
         } catch (Exception e) {
-            NationsMod.LOGGER.debug("Ошибка обновления DynMap: " + e.getMessage());
+            NationsMod.LOGGER.debug("Dynmap Update Error: " + e.getMessage());
         }
     }
 
     private static void clearMarkers() throws Exception {
         Method getAreas = townMarkerSet.getClass().getMethod("getAreaMarkers");
         Set<?> areas = (Set<?>) getAreas.invoke(townMarkerSet);
-        for (Object area : new HashSet<>(areas)) {
-            Method delete = area.getClass().getMethod("deleteMarker");
-            delete.invoke(area);
+        if (areas != null) {
+            for (Object area : new HashSet<>(areas)) {
+                area.getClass().getMethod("deleteMarker").invoke(area);
+            }
         }
     }
 
@@ -132,59 +124,25 @@ public class DynmapIntegration {
                 String.class, String.class, boolean.class, String.class, 
                 double[].class, double[].class, boolean.class);
 
+            // Параметры: ID, Label, isHTML, World, X[], Z[], persistent
             Object area = createArea.invoke(townMarkerSet, markerId, buildLabel(town, nationName), 
                 true, "world", new double[]{x1, x2, x2, x1}, new double[]{z1, z1, z2, z2}, false);
 
             if (area != null) {
-                Method setFill = area.getClass().getMethod("setFillStyle", double.class, int.class);
-                setFill.invoke(area, 0.35, color);
-                Method setLine = area.getClass().getMethod("setLineStyle", int.class, double.class, int.class);
-                setLine.invoke(area, 2, 0.8, color);
+                area.getClass().getMethod("setFillStyle", double.class, int.class).invoke(area, 0.35, color);
+                area.getClass().getMethod("setLineStyle", int.class, double.class, int.class).invoke(area, 2, 0.8, color);
             }
         }
     }
 
     private static String buildLabel(Town town, String nationName) {
         String borderColor = town.isAtWar() ? "#F00" : "#FFD700";
-        StringBuilder sb = new StringBuilder();
-        sb.append("<div style='padding:10px; background:rgba(0,0,0,0.9); border:2px solid ").append(borderColor).append("; border-radius:10px; color:white; font-family:sans-serif;'>");
-        sb.append("<div style='font-size:16px; font-weight:bold; color:#FFD700; margin-bottom:5px;'>🏰 ").append(town.getName()).append("</div>");
-        
-        if (!nationName.isEmpty()) {
-            sb.append("<div style='color:#55AAFF; font-weight:bold; margin-bottom:5px;'>🏛 Нация: ").append(nationName).append("</div>");
-        }
-
-        if (town.isAtWar()) sb.append("<div style='color:#FF4444; font-weight:bold;'>⚠️ СОСТОЯНИЕ ВОЙНЫ</div>");
-        if (town.isCaptured()) sb.append("<div style='color:#FFAA00;'>🏴 Захвачен нацией: ").append(town.getCapturedBy()).append("</div>");
-
-        sb.append("<hr style='border:0; border-top:1px solid #444; margin:8px 0;'>");
-        sb.append("<div style='font-size:12px;'>");
-        sb.append("👥 Жителей: <span style='color:#FFF;'>").append(town.getMembers().size()).append("</span><br>");
-        sb.append("📍 Чанков: <span style='color:#FFF;'>").append(town.getClaimedChunks().size()).append("</span><br>");
-        sb.append("⚔ PvP: ").append(town.isPvpEnabled() ? "<span style='color:#FF4444;'>ВКЛ</span>" : "<span style='color:#44FF44;'>ВЫКЛ</span>").append("<br>");
-        
-        // Правитель
-        String mayorName = "неизвестно";
-        if (NationsData.getServer() != null) {
-            var p = NationsData.getServer().getPlayerList().getPlayer(town.getMayor());
-            if (p != null) mayorName = p.getName().getString();
-        }
-        sb.append("👑 Правитель: <span style='color:#FFD700;'>").append(mayorName).append("</span>");
-        sb.append("</div>");
-
-        // Список жителей (укороченный)
-        sb.append("<div style='font-size:10px; color:#AAA; margin-top:5px;'>Жители: ");
-        int i = 0;
-        for (UUID id : town.getMembers()) {
-            if (i > 0) sb.append(", ");
-            if (i > 5) { sb.append("и др."); break; }
-            if (NationsData.getServer() != null) {
-                var p = NationsData.getServer().getPlayerList().getPlayer(id);
-                sb.append(p != null ? p.getName().getString() : "оффлайн");
-            }
-            i++;
-        }
-        sb.append("</div></div>");
-        return sb.toString();
+        return "<div style='padding:10px; background:rgba(0,0,0,0.85); border:2px solid " + borderColor + "; border-radius:10px; color:white;'>" +
+               "<b style='font-size:14px; color:#FFD700;'>🏰 " + town.getName() + "</b>" +
+               (nationName.isEmpty() ? "" : "<br><span style='color:#5af;'>🏛 Нация: " + nationName + "</span>") +
+               "<hr style='border:0; border-top:1px solid #444;'>" +
+               "👥 Жителей: " + town.getMembers().size() + "<br>" +
+               "⚔ PvP: " + (town.isPvpEnabled() ? "<span style='color:#f44;'>ВКЛ</span>" : "<span style='color:#4f4;'>ВЫКЛ</span>") +
+               "</div>";
     }
 }
