@@ -2,8 +2,7 @@ package com.nations.commands;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.nations.data.NationsData;
-import com.nations.data.Town;
+import com.nations.data.*;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -53,6 +52,18 @@ public class TownCommands {
                     .executes(ctx -> setDestruction(ctx.getSource(), true)))
                 .then(Commands.literal("off")
                     .executes(ctx -> setDestruction(ctx.getSource(), false))))
+            // Новые команды ролей
+            .then(Commands.literal("role")
+                .then(Commands.literal("set")
+                    .then(Commands.argument("player", StringArgumentType.word())
+                        .then(Commands.argument("role", StringArgumentType.word())
+                            .executes(ctx -> setRole(ctx.getSource(),
+                                StringArgumentType.getString(ctx, "player"),
+                                StringArgumentType.getString(ctx, "role")))))))
+            .then(Commands.literal("roles")
+                .executes(ctx -> listRoles(ctx.getSource())))
+            .then(Commands.literal("members")
+                .executes(ctx -> listMembers(ctx.getSource())))
         );
     }
 
@@ -71,7 +82,6 @@ public class TownCommands {
             }
 
             Town town = new Town(name, uuid);
-            // Приватим чанк где стоит игрок как первый чанк города
             ChunkPos cp = new ChunkPos(player.blockPosition());
             if (NationsData.getTownByChunk(cp) != null) {
                 source.sendFailure(Component.literal("§cЭтот чанк уже занят другим городом!"));
@@ -79,8 +89,9 @@ public class TownCommands {
             }
             town.claimChunk(cp);
             NationsData.addTown(town);
+            Economy.deposit(uuid, 0); // инициализация баланса
             source.sendSuccess(() -> Component.literal(
-                "§aГород §e" + name + "§a успешно создан! Первый чанк запривачен."), true);
+                "§a🏰 Город §e" + name + "§a успешно создан! Вы — Правитель."), true);
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
@@ -96,11 +107,10 @@ public class TownCommands {
                 source.sendFailure(Component.literal("§cВы не состоите в городе!"));
                 return 0;
             }
-            if (!town.getMayor().equals(player.getUUID())) {
-                source.sendFailure(Component.literal("§cТолько мэр может удалить город!"));
+            if (!town.hasPermission(player.getUUID(), TownRole.RULER)) {
+                source.sendFailure(Component.literal("§cТолько Правитель может удалить город!"));
                 return 0;
             }
-            // Убрать из нации
             if (town.getNationName() != null) {
                 var nation = NationsData.getNation(town.getNationName());
                 if (nation != null) {
@@ -110,7 +120,7 @@ public class TownCommands {
             }
             NationsData.removeTown(town.getName());
             source.sendSuccess(() -> Component.literal(
-                "§aГород §e" + town.getName() + "§a удалён!"), true);
+                "§a🏰 Город §e" + town.getName() + "§a удалён!"), true);
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
@@ -122,12 +132,11 @@ public class TownCommands {
         try {
             ServerPlayer sender = source.getPlayerOrException();
             Town town = NationsData.getTownByPlayer(sender.getUUID());
-            if (town == null || !town.getMayor().equals(sender.getUUID())) {
-                source.sendFailure(Component.literal("§cВы не мэр города!"));
+            if (town == null || !town.hasPermission(sender.getUUID(), TownRole.OFFICER)) {
+                source.sendFailure(Component.literal("§cНужна роль Офицер или выше!"));
                 return 0;
             }
-            ServerPlayer target = source.getServer().getPlayerList()
-                .getPlayerByName(playerName);
+            ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(playerName);
             if (target == null) {
                 source.sendFailure(Component.literal("§cИгрок не найден!"));
                 return 0;
@@ -136,10 +145,9 @@ public class TownCommands {
                 source.sendFailure(Component.literal("§cИгрок уже в городе!"));
                 return 0;
             }
-            // Сохраняем инвайт в самом городе через members (простой подход)
             target.sendSystemMessage(Component.literal(
-                "§aВас пригласили в город §e" + town.getName() +
-                "§a! Напишите §e/town join " + town.getName() + "§a чтобы принять."));
+                "§a🏰 Вас пригласили в город §e" + town.getName() +
+                "§a! Напишите §e/town join " + town.getName()));
             source.sendSuccess(() -> Component.literal(
                 "§aПриглашение отправлено игроку §e" + playerName), true);
             return 1;
@@ -164,7 +172,8 @@ public class TownCommands {
             town.addMember(player.getUUID());
             NationsData.save();
             source.sendSuccess(() -> Component.literal(
-                "§aВы присоединились к городу §e" + town.getName()), true);
+                "§aВы присоединились к городу §e" + town.getName() +
+                " §aкак §f" + town.getRole(player.getUUID()).getDisplayName()), true);
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
@@ -180,9 +189,9 @@ public class TownCommands {
                 source.sendFailure(Component.literal("§cВы не в городе!"));
                 return 0;
             }
-            if (town.getMayor().equals(player.getUUID())) {
+            if (town.hasPermission(player.getUUID(), TownRole.RULER)) {
                 source.sendFailure(Component.literal(
-                    "§cМэр не может покинуть город! Удалите город командой /town delete"));
+                    "§cПравитель не может покинуть город! Удалите: /town delete"));
                 return 0;
             }
             town.removeMember(player.getUUID());
@@ -199,12 +208,11 @@ public class TownCommands {
         try {
             ServerPlayer sender = source.getPlayerOrException();
             Town town = NationsData.getTownByPlayer(sender.getUUID());
-            if (town == null || !town.getMayor().equals(sender.getUUID())) {
-                source.sendFailure(Component.literal("§cВы не мэр!"));
+            if (town == null || !town.hasPermission(sender.getUUID(), TownRole.GENERAL)) {
+                source.sendFailure(Component.literal("§cНужна роль Генерал или выше!"));
                 return 0;
             }
-            ServerPlayer target = source.getServer().getPlayerList()
-                .getPlayerByName(playerName);
+            ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(playerName);
             if (target == null) {
                 source.sendFailure(Component.literal("§cИгрок не найден!"));
                 return 0;
@@ -213,10 +221,13 @@ public class TownCommands {
                 source.sendFailure(Component.literal("§cИгрок не в вашем городе!"));
                 return 0;
             }
+            if (town.getRole(target.getUUID()).getPower() >= town.getRole(sender.getUUID()).getPower()) {
+                source.sendFailure(Component.literal("§cНельзя выгнать того, чья роль равна или выше вашей!"));
+                return 0;
+            }
             town.removeMember(target.getUUID());
             NationsData.save();
-            target.sendSystemMessage(Component.literal(
-                "§cВас выгнали из города " + town.getName()));
+            target.sendSystemMessage(Component.literal("§cВас выгнали из города " + town.getName()));
             source.sendSuccess(() -> Component.literal(
                 "§aИгрок §e" + playerName + "§a выгнан из города."), true);
             return 1;
@@ -253,15 +264,23 @@ public class TownCommands {
     }
 
     private static void sendTownInfo(CommandSourceStack source, Town town) {
-        source.sendSuccess(() -> Component.literal(
-            "§6=== Город: §e" + town.getName() + " §6===\n" +
-            "§7Нация: §f" + (town.getNationName() != null ? town.getNationName() : "нет") + "\n" +
-            "§7Участников: §f" + town.getMembers().size() + "\n" +
-            "§7Чанков: §f" + town.getClaimedChunks().size() + "\n" +
-            "§7PvP: " + (town.isPvpEnabled() ? "§aВКЛ" : "§cВЫКЛ") + "\n" +
-            "§7Разрушение: " + (town.isDestructionEnabled() ? "§aВКЛ" : "§cВЫКЛ") + "\n" +
-            "§7Война: " + (town.isAtWar() ? "§cДА" : "§aНЕТ")
-        ), false);
+        StringBuilder sb = new StringBuilder();
+        sb.append("§6§l══════════════════════════\n");
+        sb.append("§6§l  🏰 ").append(town.getName()).append("\n");
+        sb.append("§6§l══════════════════════════\n");
+        sb.append("§7Нация: §f").append(town.getNationName() != null ? town.getNationName() : "нет").append("\n");
+        sb.append("§7Участников: §f").append(town.getMembers().size()).append("\n");
+        sb.append("§7Чанков: §f").append(town.getClaimedChunks().size()).append("\n");
+        sb.append("§7Сила: §f").append(town.getPower()).append("\n");
+        sb.append("§7Налог: §f").append(String.format("%.1f%%", town.getTaxRate() * 100)).append("\n");
+        sb.append("§7Казна: §e").append(Economy.format(Economy.getTownBalance(town.getName()))).append("\n");
+        sb.append("§7PvP: ").append(town.isPvpEnabled() ? "§aВКЛ" : "§cВЫКЛ").append("\n");
+        sb.append("§7Разрушение: ").append(town.isDestructionEnabled() ? "§aВКЛ" : "§cВЫКЛ").append("\n");
+        sb.append("§7Война: ").append(town.isAtWar() ? "§cДА" : "§aНЕТ").append("\n");
+        if (town.isCaptured()) {
+            sb.append("§c§lЗАХВАЧЕН нацией: §e").append(town.getCapturedBy()).append("\n");
+        }
+        source.sendSuccess(() -> Component.literal(sb.toString()), false);
     }
 
     private static int listTowns(CommandSourceStack source) {
@@ -270,12 +289,13 @@ public class TownCommands {
             source.sendSuccess(() -> Component.literal("§7Городов пока нет."), false);
             return 1;
         }
-        StringBuilder sb = new StringBuilder("§6=== Города ===\n");
+        StringBuilder sb = new StringBuilder("§6=== 🏰 Города ===\n");
         for (Town t : allTowns) {
             sb.append("§e").append(t.getName())
               .append(" §7[").append(t.getMembers().size()).append(" чел.] ")
-              .append(t.getNationName() != null ? "§9" + t.getNationName() : "§8без нации")
-              .append("\n");
+              .append(t.getNationName() != null ? "§9" + t.getNationName() : "§8без нации");
+            if (t.isCaptured()) sb.append(" §c[ЗАХВАЧЕН]");
+            sb.append("\n");
         }
         source.sendSuccess(() -> Component.literal(sb.toString()), false);
         return 1;
@@ -285,14 +305,14 @@ public class TownCommands {
         try {
             ServerPlayer player = source.getPlayerOrException();
             Town town = NationsData.getTownByPlayer(player.getUUID());
-            if (town == null || !town.getMayor().equals(player.getUUID())) {
-                source.sendFailure(Component.literal("§cВы не мэр!"));
+            if (town == null || !town.hasPermission(player.getUUID(), TownRole.VICE_RULER)) {
+                source.sendFailure(Component.literal("§cНужна роль Зам. Правителя или выше!"));
                 return 0;
             }
             town.setPvpEnabled(enabled);
             NationsData.save();
             source.sendSuccess(() -> Component.literal(
-                "§aPvP в городе " + (enabled ? "§aвключён" : "§cвыключен")), true);
+                "§aPvP " + (enabled ? "§aвключён" : "§cвыключен")), true);
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
@@ -304,14 +324,94 @@ public class TownCommands {
         try {
             ServerPlayer player = source.getPlayerOrException();
             Town town = NationsData.getTownByPlayer(player.getUUID());
-            if (town == null || !town.getMayor().equals(player.getUUID())) {
-                source.sendFailure(Component.literal("§cВы не мэр!"));
+            if (town == null || !town.hasPermission(player.getUUID(), TownRole.VICE_RULER)) {
+                source.sendFailure(Component.literal("§cНужна роль Зам. Правителя или выше!"));
                 return 0;
             }
             town.setDestructionEnabled(enabled);
             NationsData.save();
             source.sendSuccess(() -> Component.literal(
-                "§aРазрушение в городе " + (enabled ? "§aвключено" : "§cвыключено")), true);
+                "§aРазрушение " + (enabled ? "§aвключено" : "§cвыключено")), true);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int setRole(CommandSourceStack source, String playerName, String roleId) {
+        try {
+            ServerPlayer sender = source.getPlayerOrException();
+            Town town = NationsData.getTownByPlayer(sender.getUUID());
+            if (town == null || !town.hasPermission(sender.getUUID(), TownRole.RULER)) {
+                source.sendFailure(Component.literal("§cТолько Правитель может назначать роли!"));
+                return 0;
+            }
+            ServerPlayer target = source.getServer().getPlayerList().getPlayerByName(playerName);
+            if (target == null) {
+                source.sendFailure(Component.literal("§cИгрок не найден!"));
+                return 0;
+            }
+            if (!town.isMember(target.getUUID())) {
+                source.sendFailure(Component.literal("§cИгрок не в вашем городе!"));
+                return 0;
+            }
+            TownRole role = TownRole.fromId(roleId);
+            if (role == null) {
+                source.sendFailure(Component.literal(
+                    "§cНеизвестная роль! Используйте /town roles для списка."));
+                return 0;
+            }
+            if (role == TownRole.RULER) {
+                source.sendFailure(Component.literal("§cНельзя назначить второго Правителя!"));
+                return 0;
+            }
+            town.setRole(target.getUUID(), role);
+            NationsData.save();
+            target.sendSystemMessage(Component.literal(
+                "§aВам назначена роль: §e" + role.getDisplayName() + " §aв городе §e" + town.getName()));
+            source.sendSuccess(() -> Component.literal(
+                "§aИгроку §e" + playerName + "§a назначена роль: §e" + role.getDisplayName()), true);
+            return 1;
+        } catch (Exception e) {
+            source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int listRoles(CommandSourceStack source) {
+        StringBuilder sb = new StringBuilder("§6=== 👑 Роли ===\n");
+        for (TownRole r : TownRole.values()) {
+            sb.append("§e").append(r.getId()).append(" §7- §f").append(r.getDisplayName());
+            sb.append(" §7(сила: ").append(r.getPower()).append(")\n");
+        }
+        sb.append("\n§7Права:\n");
+        sb.append("§7• §fСтроитель§7+ — приватить чанки\n");
+        sb.append("§7• §fОфицер§7+ — приглашать игроков\n");
+        sb.append("§7• §fГенерал§7+ — выгонять игроков\n");
+        sb.append("§7• §fЗам. Правителя§7+ — налоги, PvP, казна\n");
+        sb.append("§7• §fПравитель§7 — всё + назначение ролей\n");
+        source.sendSuccess(() -> Component.literal(sb.toString()), false);
+        return 1;
+    }
+
+    private static int listMembers(CommandSourceStack source) {
+        try {
+            ServerPlayer player = source.getPlayerOrException();
+            Town town = NationsData.getTownByPlayer(player.getUUID());
+            if (town == null) {
+                source.sendFailure(Component.literal("§cВы не в городе!"));
+                return 0;
+            }
+            StringBuilder sb = new StringBuilder("§6=== 👥 Жители " + town.getName() + " ===\n");
+            for (UUID memberId : town.getMembers()) {
+                TownRole role = town.getRole(memberId);
+                String name = source.getServer().getPlayerList().getPlayer(memberId) != null ?
+                    source.getServer().getPlayerList().getPlayer(memberId).getName().getString() :
+                    memberId.toString().substring(0, 8) + "...";
+                sb.append("§e").append(name).append(" §7- §f").append(role.getDisplayName()).append("\n");
+            }
+            source.sendSuccess(() -> Component.literal(sb.toString()), false);
             return 1;
         } catch (Exception e) {
             source.sendFailure(Component.literal("§cОшибка: " + e.getMessage()));
