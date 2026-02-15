@@ -20,6 +20,8 @@ public class ClaimMapPacket {
     private final int playerChunkZ;
     private final String playerTown;
     private final String playerNation;
+    private final int maxChunks;
+    private final int currentChunks;
 
     public static class ChunkEntry {
         public int x, z;
@@ -29,9 +31,11 @@ public class ClaimMapPacket {
         public boolean isAtWar;
         public boolean isCaptured;
         public String capturedBy;
+        public boolean isPlayerTown;
 
         public ChunkEntry(int x, int z, String townName, String nationName,
-                          int color, boolean isAtWar, boolean isCaptured, String capturedBy) {
+                          int color, boolean isAtWar, boolean isCaptured,
+                          String capturedBy, boolean isPlayerTown) {
             this.x = x;
             this.z = z;
             this.townName = townName;
@@ -40,16 +44,19 @@ public class ClaimMapPacket {
             this.isAtWar = isAtWar;
             this.isCaptured = isCaptured;
             this.capturedBy = capturedBy;
+            this.isPlayerTown = isPlayerTown;
         }
     }
 
     public ClaimMapPacket(List<ChunkEntry> entries, int playerChunkX, int playerChunkZ,
-                          String playerTown, String playerNation) {
+                          String playerTown, String playerNation, int maxChunks, int currentChunks) {
         this.entries = entries;
         this.playerChunkX = playerChunkX;
         this.playerChunkZ = playerChunkZ;
         this.playerTown = playerTown;
         this.playerNation = playerNation;
+        this.maxChunks = maxChunks;
+        this.currentChunks = currentChunks;
     }
 
     public static ClaimMapPacket create(ServerPlayer player) {
@@ -57,10 +64,11 @@ public class ClaimMapPacket {
         int pcz = player.blockPosition().getZ() >> 4;
         int radius = 20;
 
-        // Информация о игроке
         Town pTown = NationsData.getTownByPlayer(player.getUUID());
         String playerTownName = pTown != null ? pTown.getName() : "";
         String playerNationName = pTown != null && pTown.getNationName() != null ? pTown.getNationName() : "";
+        int maxChunks = pTown != null ? pTown.getMaxChunks() : 0;
+        int currentChunks = pTown != null ? pTown.getClaimedChunks().size() : 0;
 
         List<ChunkEntry> entries = new ArrayList<>();
         for (int dx = -radius; dx <= radius; dx++) {
@@ -71,18 +79,20 @@ public class ClaimMapPacket {
                 Town town = NationsData.getTownByChunk(cp);
                 if (town != null) {
                     String nationName = town.getNationName() != null ? town.getNationName() : "";
-                    int color = 0xAAAAAA;
+                    int color = 0x888888;
                     if (town.getNationName() != null) {
                         Nation nation = NationsData.getNation(town.getNationName());
                         if (nation != null) color = nation.getColor().getHex();
                     }
+                    boolean isPlayerTown = pTown != null && town.getName().equalsIgnoreCase(pTown.getName());
                     entries.add(new ChunkEntry(cx, cz, town.getName(), nationName,
                         color, town.isAtWar(), town.isCaptured(),
-                        town.getCapturedBy() != null ? town.getCapturedBy() : ""));
+                        town.getCapturedBy() != null ? town.getCapturedBy() : "",
+                        isPlayerTown));
                 }
             }
         }
-        return new ClaimMapPacket(entries, pcx, pcz, playerTownName, playerNationName);
+        return new ClaimMapPacket(entries, pcx, pcz, playerTownName, playerNationName, maxChunks, currentChunks);
     }
 
     public void encode(FriendlyByteBuf buf) {
@@ -90,6 +100,8 @@ public class ClaimMapPacket {
         buf.writeInt(playerChunkZ);
         buf.writeUtf(playerTown);
         buf.writeUtf(playerNation);
+        buf.writeInt(maxChunks);
+        buf.writeInt(currentChunks);
         buf.writeInt(entries.size());
         for (ChunkEntry e : entries) {
             buf.writeInt(e.x);
@@ -100,6 +112,7 @@ public class ClaimMapPacket {
             buf.writeBoolean(e.isAtWar);
             buf.writeBoolean(e.isCaptured);
             buf.writeUtf(e.capturedBy);
+            buf.writeBoolean(e.isPlayerTown);
         }
     }
 
@@ -108,6 +121,8 @@ public class ClaimMapPacket {
         int pcz = buf.readInt();
         String pTown = buf.readUtf();
         String pNation = buf.readUtf();
+        int maxC = buf.readInt();
+        int curC = buf.readInt();
         int size = buf.readInt();
         List<ChunkEntry> entries = new ArrayList<>();
         for (int i = 0; i < size; i++) {
@@ -115,10 +130,11 @@ public class ClaimMapPacket {
                 buf.readInt(), buf.readInt(),
                 buf.readUtf(), buf.readUtf(),
                 buf.readInt(), buf.readBoolean(),
-                buf.readBoolean(), buf.readUtf()
+                buf.readBoolean(), buf.readUtf(),
+                buf.readBoolean()
             ));
         }
-        return new ClaimMapPacket(entries, pcx, pcz, pTown, pNation);
+        return new ClaimMapPacket(entries, pcx, pcz, pTown, pNation, maxC, curC);
     }
 
     public void handle(Supplier<NetworkEvent.Context> ctxSupplier) {
@@ -136,6 +152,8 @@ public class ClaimMapPacket {
     public int getPlayerChunkZ() { return playerChunkZ; }
     public String getPlayerTown() { return playerTown; }
     public String getPlayerNation() { return playerNation; }
+    public int getMaxChunks() { return maxChunks; }
+    public int getCurrentChunks() { return currentChunks; }
 
     public static class ClientHandler {
         public static void openMap(ClaimMapPacket packet) {
