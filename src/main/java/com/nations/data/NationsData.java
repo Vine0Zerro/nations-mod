@@ -1,6 +1,7 @@
 package com.nations.data;
 
 import com.google.gson.*;
+import com.nations.integration.DynmapIntegration;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.ChunkPos;
 
@@ -98,10 +99,17 @@ public class NationsData {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
+        // === Обновить DynMap при каждом сохранении ===
+        try {
+            DynmapIntegration.updateAllMarkers();
+        } catch (Exception ignored) {}
     }
 
-    // === Town ===
-    public static Town getTown(String name) { return towns.get(name.toLowerCase()); }
+    // === Town methods ===
+    public static Town getTown(String name) {
+        return towns.get(name.toLowerCase());
+    }
 
     public static Town getTownByPlayer(UUID player) {
         for (Town t : towns.values()) {
@@ -117,7 +125,9 @@ public class NationsData {
         return null;
     }
 
-    public static boolean townExists(String name) { return towns.containsKey(name.toLowerCase()); }
+    public static boolean townExists(String name) {
+        return towns.containsKey(name.toLowerCase());
+    }
 
     public static void addTown(Town town) {
         towns.put(town.getName().toLowerCase(), town);
@@ -139,10 +149,14 @@ public class NationsData {
         }
     }
 
-    public static Collection<Town> getAllTowns() { return towns.values(); }
+    public static Collection<Town> getAllTowns() {
+        return towns.values();
+    }
 
-    // === Nation ===
-    public static Nation getNation(String name) { return nations.get(name.toLowerCase()); }
+    // === Nation methods ===
+    public static Nation getNation(String name) {
+        return nations.get(name.toLowerCase());
+    }
 
     public static Nation getNationByPlayer(UUID player) {
         Town t = getTownByPlayer(player);
@@ -152,7 +166,9 @@ public class NationsData {
         return null;
     }
 
-    public static boolean nationExists(String name) { return nations.containsKey(name.toLowerCase()); }
+    public static boolean nationExists(String name) {
+        return nations.containsKey(name.toLowerCase());
+    }
 
     public static void addNation(Nation nation) {
         nations.put(nation.getName().toLowerCase(), nation);
@@ -189,7 +205,9 @@ public class NationsData {
         }
     }
 
-    public static Collection<Nation> getAllNations() { return nations.values(); }
+    public static Collection<Nation> getAllNations() {
+        return nations.values();
+    }
 
     public static boolean isColorTaken(NationColor color) {
         for (Nation n : nations.values()) {
@@ -198,8 +216,10 @@ public class NationsData {
         return false;
     }
 
-    // === Alliance ===
-    public static Alliance getAlliance(String name) { return alliances.get(name.toLowerCase()); }
+    // === Alliance methods ===
+    public static Alliance getAlliance(String name) {
+        return alliances.get(name.toLowerCase());
+    }
 
     public static Alliance getAllianceByNation(String nationName) {
         for (Alliance a : alliances.values()) {
@@ -208,10 +228,23 @@ public class NationsData {
         return null;
     }
 
-    public static boolean allianceExists(String name) { return alliances.containsKey(name.toLowerCase()); }
-    public static void addAlliance(Alliance alliance) { alliances.put(alliance.getName().toLowerCase(), alliance); save(); }
-    public static void removeAlliance(String name) { alliances.remove(name.toLowerCase()); save(); }
-    public static Collection<Alliance> getAllAlliances() { return alliances.values(); }
+    public static boolean allianceExists(String name) {
+        return alliances.containsKey(name.toLowerCase());
+    }
+
+    public static void addAlliance(Alliance alliance) {
+        alliances.put(alliance.getName().toLowerCase(), alliance);
+        save();
+    }
+
+    public static void removeAlliance(String name) {
+        alliances.remove(name.toLowerCase());
+        save();
+    }
+
+    public static Collection<Alliance> getAllAlliances() {
+        return alliances.values();
+    }
 
     public static boolean areAllied(String nation1, String nation2) {
         for (Alliance a : alliances.values()) {
@@ -220,7 +253,7 @@ public class NationsData {
         return false;
     }
 
-    // === War zone check ===
+    // === War zone methods ===
     public static boolean isWarZone(ChunkPos pos) {
         Town town = getTownByChunk(pos);
         return town != null && town.isAtWar();
@@ -239,7 +272,7 @@ public class NationsData {
             .collect(Collectors.toList());
     }
 
-    // === Claim rate ===
+    // === Claim rate limiting ===
     public static boolean canClaim(UUID player) {
         long now = System.currentTimeMillis();
         Long lastReset = claimCooldowns.get(player);
