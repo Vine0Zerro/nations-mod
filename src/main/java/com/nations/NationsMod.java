@@ -1,8 +1,6 @@
 package com.nations;
 
-import com.nations.commands.ClaimCommands;
-import com.nations.commands.NationCommands;
-import com.nations.commands.TownCommands;
+import com.nations.commands.*;
 import com.nations.data.NationsData;
 import com.nations.events.ProtectionHandler;
 import com.nations.network.NetworkHandler;
@@ -48,5 +46,8 @@ public class NationsMod {
         TownCommands.register(event.getDispatcher());
         NationCommands.register(event.getDispatcher());
         ClaimCommands.register(event.getDispatcher());
+        EconomyCommands.register(event.getDispatcher());
+        AllianceCommands.register(event.getDispatcher());
+        RankingCommands.register(event.getDispatcher());
     }
 }
