@@ -8,11 +8,12 @@ import java.io.*;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class NationsData {
     private static final Map<String, Town> towns = new ConcurrentHashMap<>();
     private static final Map<String, Nation> nations = new ConcurrentHashMap<>();
-    // Ограничение: UUID -> timestamp последнего claim batch
+    private static final Map<String, Alliance> alliances = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> claimCooldowns = new ConcurrentHashMap<>();
     private static final Map<UUID, Integer> claimCountInMinute = new ConcurrentHashMap<>();
     private static Path saveDir;
@@ -24,6 +25,8 @@ public class NationsData {
             Files.createDirectories(saveDir);
             loadTowns();
             loadNations();
+            loadAlliances();
+            loadEconomy();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -53,6 +56,25 @@ public class NationsData {
         }
     }
 
+    private static void loadAlliances() throws IOException {
+        Path file = saveDir.resolve("alliances.json");
+        if (!Files.exists(file)) return;
+        String content = Files.readString(file);
+        JsonArray arr = JsonParser.parseString(content).getAsJsonArray();
+        alliances.clear();
+        for (var el : arr) {
+            Alliance a = Alliance.fromJson(el.getAsJsonObject());
+            alliances.put(a.getName().toLowerCase(), a);
+        }
+    }
+
+    private static void loadEconomy() throws IOException {
+        Path file = saveDir.resolve("economy.json");
+        if (!Files.exists(file)) return;
+        String content = Files.readString(file);
+        Economy.fromJson(JsonParser.parseString(content).getAsJsonObject());
+    }
+
     public static void save() {
         if (saveDir == null) return;
         try {
@@ -63,6 +85,12 @@ public class NationsData {
             JsonArray nationsArr = new JsonArray();
             for (Nation n : nations.values()) nationsArr.add(n.toJson());
             Files.writeString(saveDir.resolve("nations.json"), GSON.toJson(nationsArr));
+
+            JsonArray alliancesArr = new JsonArray();
+            for (Alliance a : alliances.values()) alliancesArr.add(a.toJson());
+            Files.writeString(saveDir.resolve("alliances.json"), GSON.toJson(alliancesArr));
+
+            Files.writeString(saveDir.resolve("economy.json"), GSON.toJson(Economy.toJson()));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -85,26 +113,13 @@ public class NationsData {
         return null;
     }
 
-    public static boolean townExists(String name) {
-        return towns.containsKey(name.toLowerCase());
-    }
-
-    public static void addTown(Town town) {
-        towns.put(town.getName().toLowerCase(), town);
-        save();
-    }
-
-    public static void removeTown(String name) {
-        towns.remove(name.toLowerCase());
-        save();
-    }
-
+    public static boolean townExists(String name) { return towns.containsKey(name.toLowerCase()); }
+    public static void addTown(Town town) { towns.put(town.getName().toLowerCase(), town); save(); }
+    public static void removeTown(String name) { towns.remove(name.toLowerCase()); save(); }
     public static Collection<Town> getAllTowns() { return towns.values(); }
 
     // === Nation methods ===
-    public static Nation getNation(String name) {
-        return nations.get(name.toLowerCase());
-    }
+    public static Nation getNation(String name) { return nations.get(name.toLowerCase()); }
 
     public static Nation getNationByPlayer(UUID player) {
         Town t = getTownByPlayer(player);
@@ -114,20 +129,9 @@ public class NationsData {
         return null;
     }
 
-    public static boolean nationExists(String name) {
-        return nations.containsKey(name.toLowerCase());
-    }
-
-    public static void addNation(Nation nation) {
-        nations.put(nation.getName().toLowerCase(), nation);
-        save();
-    }
-
-    public static void removeNation(String name) {
-        nations.remove(name.toLowerCase());
-        save();
-    }
-
+    public static boolean nationExists(String name) { return nations.containsKey(name.toLowerCase()); }
+    public static void addNation(Nation nation) { nations.put(nation.getName().toLowerCase(), nation); save(); }
+    public static void removeNation(String name) { nations.remove(name.toLowerCase()); save(); }
     public static Collection<Nation> getAllNations() { return nations.values(); }
 
     public static boolean isColorTaken(NationColor color) {
@@ -137,7 +141,36 @@ public class NationsData {
         return false;
     }
 
-    // === Claim rate limiting: 5 chunks per minute ===
+    // === Alliance methods ===
+    public static Alliance getAlliance(String name) { return alliances.get(name.toLowerCase()); }
+
+    public static Alliance getAllianceByNation(String nationName) {
+        for (Alliance a : alliances.values()) {
+            if (a.hasMember(nationName)) return a;
+        }
+        return null;
+    }
+
+    public static boolean allianceExists(String name) { return alliances.containsKey(name.toLowerCase()); }
+    public static void addAlliance(Alliance alliance) { alliances.put(alliance.getName().toLowerCase(), alliance); save(); }
+    public static void removeAlliance(String name) { alliances.remove(name.toLowerCase()); save(); }
+    public static Collection<Alliance> getAllAlliances() { return alliances.values(); }
+
+    public static boolean areAllied(String nation1, String nation2) {
+        for (Alliance a : alliances.values()) {
+            if (a.areAllied(nation1, nation2)) return true;
+        }
+        return false;
+    }
+
+    // === Ranking ===
+    public static List<Nation> getNationRanking() {
+        return nations.values().stream()
+            .sorted((a, b) -> Integer.compare(b.getRating(), a.getRating()))
+            .collect(Collectors.toList());
+    }
+
+    // === Claim rate limiting ===
     public static boolean canClaim(UUID player) {
         long now = System.currentTimeMillis();
         Long lastReset = claimCooldowns.get(player);
