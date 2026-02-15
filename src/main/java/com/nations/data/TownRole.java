@@ -1,12 +1,12 @@
 package com.nations.data;
 
 public enum TownRole {
-    RULER("ruler", "Правитель", 100),
-    VICE_RULER("vice_ruler", "Зам. Правителя", 80),
-    GENERAL("general", "Генерал", 60),
-    OFFICER("officer", "Офицер", 40),
-    BUILDER("builder", "Строитель", 30),
-    CITIZEN("citizen", "Гражданин", 10);
+    RULER("ruler", "§6👑 Правитель", 100),
+    VICE_RULER("vice_ruler", "§e⚜ Зам. Правителя", 80),
+    GENERAL("general", "§c⚔ Генерал", 60),
+    OFFICER("officer", "§9🛡 Офицер", 40),
+    BUILDER("builder", "§a🔨 Строитель", 30),
+    CITIZEN("citizen", "§7👤 Гражданин", 10);
 
     private final String id;
     private final String displayName;
@@ -22,25 +22,11 @@ public enum TownRole {
     public String getDisplayName() { return displayName; }
     public int getPower() { return power; }
 
-    public boolean canClaim() {
-        return power >= 30; // Строитель и выше
-    }
-
-    public boolean canInvite() {
-        return power >= 40; // Офицер и выше
-    }
-
-    public boolean canKick() {
-        return power >= 60; // Генерал и выше
-    }
-
-    public boolean canManageTown() {
-        return power >= 80; // Зам и выше
-    }
-
-    public boolean isRuler() {
-        return power >= 100;
-    }
+    public boolean canClaim() { return power >= 30; }
+    public boolean canInvite() { return power >= 40; }
+    public boolean canKick() { return power >= 60; }
+    public boolean canManageTown() { return power >= 80; }
+    public boolean isRuler() { return power >= 100; }
 
     public static TownRole fromId(String id) {
         for (TownRole r : values()) {
