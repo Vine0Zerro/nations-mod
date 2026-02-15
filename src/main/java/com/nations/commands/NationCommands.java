@@ -8,6 +8,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ChunkPos;
 
 import java.util.UUID;
 
@@ -137,7 +138,6 @@ public class NationCommands {
                     t.setCapturedBy(null);
                 }
             }
-            // Удалить из альянса
             if (nation.getAllianceName() != null) {
                 Alliance a = NationsData.getAlliance(nation.getAllianceName());
                 if (a != null) a.removeMember(nation.getName());
@@ -356,11 +356,19 @@ public class NationCommands {
 
             for (String townName : nation.getTowns()) {
                 Town t = NationsData.getTown(townName);
-                if (t != null) { t.setAtWar(true); t.setPvpEnabled(true); t.setDestructionEnabled(true); }
+                if (t != null) {
+                    t.setAtWar(true);
+                    t.setPvpEnabled(true);
+                    t.setDestructionEnabled(true);
+                }
             }
             for (String townName : target.getTowns()) {
                 Town t = NationsData.getTown(townName);
-                if (t != null) { t.setAtWar(true); t.setPvpEnabled(true); t.setDestructionEnabled(true); }
+                if (t != null) {
+                    t.setAtWar(true);
+                    t.setPvpEnabled(true);
+                    t.setDestructionEnabled(true);
+                }
             }
             NationsData.save();
 
@@ -450,7 +458,6 @@ public class NationCommands {
                 return 0;
             }
 
-            // Игрок должен находиться на территории этого города
             ChunkPos playerChunk = new ChunkPos(player.blockPosition());
             if (!town.ownsChunk(playerChunk)) {
                 source.sendFailure(Component.literal(
@@ -458,7 +465,6 @@ public class NationCommands {
                 return 0;
             }
 
-            // Захват
             town.setCaptured(true);
             town.setCapturedBy(nation.getName());
             nation.addTownCaptured();
@@ -488,26 +494,31 @@ public class NationCommands {
                 return 0;
             }
 
-            // Капитуляция — враг побеждает
             nation.addWarLost();
             target.addWarWon();
 
-            // Передать казну проигравшей нации
             double lostTreasury = Economy.getNationBalance(nation.getName()) * 0.5;
             Economy.withdrawFromNation(nation.getName(), lostTreasury);
             Economy.depositToNation(target.getName(), lostTreasury);
 
-            // Завершить войну
             nation.endWar(target.getName());
             target.endWar(nation.getName());
 
             for (String tn : nation.getTowns()) {
                 Town t = NationsData.getTown(tn);
-                if (t != null) { t.setAtWar(false); t.setPvpEnabled(false); t.setDestructionEnabled(false); }
+                if (t != null) {
+                    t.setAtWar(false);
+                    t.setPvpEnabled(false);
+                    t.setDestructionEnabled(false);
+                }
             }
             for (String tn : target.getTowns()) {
                 Town t = NationsData.getTown(tn);
-                if (t != null) { t.setAtWar(false); t.setPvpEnabled(false); t.setDestructionEnabled(false); }
+                if (t != null) {
+                    t.setAtWar(false);
+                    t.setPvpEnabled(false);
+                    t.setDestructionEnabled(false);
+                }
             }
             NationsData.save();
 
@@ -602,18 +613,5 @@ public class NationCommands {
         }
         source.sendSuccess(() -> Component.literal(sb.toString()), false);
         return 1;
-    }
-
-    private static int ChunkPos(net.minecraft.core.BlockPos blockPosition) {
-        return 0;
-    }
-}
-
-// Вспомогательный класс для ChunkPos
-class ChunkPos {
-    public final int x, z;
-    public ChunkPos(net.minecraft.core.BlockPos pos) {
-        this.x = pos.getX() >> 4;
-        this.z = pos.getZ() >> 4;
     }
 }
