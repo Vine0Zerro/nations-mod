@@ -3,13 +3,9 @@ package com.nations.integration;
 import com.flowpowered.math.vector.Vector2d;
 import com.nations.NationsMod;
 import com.nations.data.*;
-import de.bluecolored.bluemap.api.BlueMapAPI;
-import de.bluecolored.bluemap.api.BlueMapMap;
-import de.bluecolored.bluemap.api.markers.MarkerSet;
-import de.bluecolored.bluemap.api.markers.POIMarker;
-import de.bluecolored.bluemap.api.markers.ShapeMarker;
-import de.bluecolored.bluemap.api.math.Color;
-import de.bluecolored.bluemap.api.math.Shape;
+import de.bluecolored.bluemap.api.*;
+import de.bluecolored.bluemap.api.markers.*;
+import de.bluecolored.bluemap.api.math.*;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.fml.ModList;
 
@@ -25,23 +21,24 @@ public class BlueMapIntegration {
             return;
         }
 
-        // Подписываемся на активацию API
-        BlueMapAPI.onEnable(api -> {
-            enabled = true;
-            NationsMod.LOGGER.info("BlueMap API активирован!");
-            updateAllMarkers();
-        });
-        
-        BlueMapAPI.onDisable(api -> enabled = false);
+        try {
+            BlueMapAPI.onEnable(api -> {
+                enabled = true;
+                NationsMod.LOGGER.info("BlueMap API активирован!");
+                updateAllMarkers();
+            });
+            
+            BlueMapAPI.onDisable(api -> enabled = false);
+        } catch (NoClassDefFoundError e) {
+            // Игнорируем ошибку, если BlueMap не загружен
+        }
     }
 
     public static void updateAllMarkers() {
         if (!enabled) return;
 
         BlueMapAPI.getInstance().ifPresent(api -> {
-            // Проходимся по всем картам (world, nether, end...)
             for (BlueMapMap map : api.getMaps()) {
-                // Создаем или получаем набор маркеров
                 MarkerSet markerSet = map.getMarkerSets().computeIfAbsent(MARKER_SET_ID, 
                     id -> MarkerSet.builder()
                         .label("Города и Нации")
@@ -49,10 +46,8 @@ public class BlueMapIntegration {
                         .build()
                 );
 
-                // Очищаем старые маркеры
                 markerSet.getMarkers().clear();
 
-                // Рисуем города
                 for (Town town : NationsData.getAllTowns()) {
                     drawTown(town, markerSet, map);
                 }
@@ -61,12 +56,9 @@ public class BlueMapIntegration {
     }
 
     private static void drawTown(Town town, MarkerSet markerSet, BlueMapMap map) {
-        // Пропускаем, если город не в этом мире (пока считаем, что все в overworld)
-        // Если у тебя мультимир, нужно добавить проверку измерения в Town.java
         if (!map.getId().toLowerCase().contains("overworld") && !map.getId().equals("world")) return;
 
-        // Цвет
-        int r = 136, g = 136, b = 136; // Серый
+        int r = 136, g = 136, b = 136;
         String nationName = "";
 
         if (town.getNationName() != null) {
@@ -84,19 +76,17 @@ public class BlueMapIntegration {
         Color lineColor = new Color(r, g, b, 0.9f);
 
         if (town.isAtWar()) {
-            lineColor = new Color(255, 0, 0, 1.0f); // Красная обводка при войне
+            lineColor = new Color(255, 0, 0, 1.0f);
         } else if (town.isCaptured()) {
-            lineColor = new Color(255, 100, 0, 1.0f); // Оранжевая при захвате
+            lineColor = new Color(255, 100, 0, 1.0f);
         }
 
-        // Рисуем чанки
         for (ChunkPos cp : town.getClaimedChunks()) {
             double x1 = cp.x * 16;
             double z1 = cp.z * 16;
             double x2 = x1 + 16;
             double z2 = z1 + 16;
 
-            // Создаем квадрат
             Shape shape = new Shape(
                 new Vector2d(x1, z1),
                 new Vector2d(x2, z1),
@@ -108,18 +98,17 @@ public class BlueMapIntegration {
             
             ShapeMarker chunkMarker = ShapeMarker.builder()
                 .label(town.getName())
-                .shape(shape, 64f) // Высота 64 блока
-                .depthTestEnabled(false) // Видно сквозь стены
+                .shape(shape, 64f)
+                .depthTestEnabled(false)
                 .fillColor(fillColor)
                 .lineColor(lineColor)
                 .lineWidth(2)
-                .detail(buildPopup(town, nationName)) // HTML описание
+                .detail(buildPopup(town, nationName))
                 .build();
 
             markerSet.put(markerId, chunkMarker);
         }
 
-        // Маркер спавна (иконка)
         if (town.getSpawnPos() != null) {
             String spawnId = "spawn_" + town.getName();
             POIMarker spawnMarker = POIMarker.toBuilder()
