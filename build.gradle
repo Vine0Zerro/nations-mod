@@ -15,12 +15,6 @@ group = 'com.nations'
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
-repositories {
-    maven { url = 'https://maven.minecraftforge.net/' }
-    maven { url = 'https://jitpack.io' } // <--- JitPack всегда работает
-    mavenCentral()
-}
-
 minecraft {
     mappings channel: 'official', version: '1.20.1'
 
@@ -46,8 +40,6 @@ minecraft {
 
 dependencies {
     minecraft "net.minecraftforge:forge:1.20.1-47.2.0"
-    // Используем JitPack версию BlueMapAPI
-    compileOnly "com.github.BlueMap-Minecraft:BlueMapAPI:v2.7.2" 
 }
 
 processResources {
