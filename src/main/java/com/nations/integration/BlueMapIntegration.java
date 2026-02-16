@@ -32,7 +32,7 @@ public class BlueMapIntegration {
     private static Method mGetMarkerSets;
     private static Method mMarkerSetBuilder;
     private static Method mMarkerSetLabel;
-    private static Method mMarkerSetDefaultHidden;
+    // defaultHidden убран, так как его нет в старой версии API
     private static Method mMarkerSetBuild;
     private static Method mMarkerSetGetMarkers;
     
@@ -68,13 +68,11 @@ public class BlueMapIntegration {
             enabled = true;
         } catch (Exception e) {
             NationsMod.LOGGER.error("Ошибка инициализации BlueMap интеграции: " + e.getMessage());
-            // e.printStackTrace(); // Можно включить для отладки
         }
     }
 
     private static void loadClasses() throws ClassNotFoundException, NoSuchMethodException {
-        // Загружаем классы по имени. 
-        // ВАЖНО: Vector2d берем из flow-math, который есть в BlueMap
+        // Загружаем классы по имени
         clsBlueMapAPI = Class.forName("de.bluecolored.bluemap.api.BlueMapAPI");
         clsBlueMapMap = Class.forName("de.bluecolored.bluemap.api.BlueMapMap");
         clsMarkerSet = Class.forName("de.bluecolored.bluemap.api.markers.MarkerSet");
@@ -96,7 +94,6 @@ public class BlueMapIntegration {
         mMarkerSetBuilder = clsMarkerSet.getMethod("builder");
         Class<?> clsMarkerSetBuilder = mMarkerSetBuilder.getReturnType();
         mMarkerSetLabel = clsMarkerSetBuilder.getMethod("label", String.class);
-        mMarkerSetDefaultHidden = clsMarkerSetBuilder.getMethod("defaultHidden", boolean.class);
         mMarkerSetBuild = clsMarkerSetBuilder.getMethod("build");
         mMarkerSetGetMarkers = clsMarkerSet.getMethod("getMarkers");
 
@@ -159,7 +156,6 @@ public class BlueMapIntegration {
                 if (markerSet == null) {
                     Object builder = mMarkerSetBuilder.invoke(null);
                     mMarkerSetLabel.invoke(builder, "Города и Нации");
-                    mMarkerSetDefaultHidden.invoke(builder, false);
                     markerSet = mMarkerSetBuild.invoke(builder);
                     markerSets.put(MARKER_SET_ID, markerSet);
                 }
