@@ -4,7 +4,7 @@ license="MIT"
 
 [[mods]]
 modId="nations"
-version="${mod_version}"  # Если в оригинале было "1.0.0", замени на это, если используется плейсхолдер
+version="${mod_version}"
 displayName="Nations Mod"
 description="Towns, Nations, Claims, Wars"
 
