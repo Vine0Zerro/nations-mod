@@ -59,7 +59,7 @@ repositories {
         url = 'https://maven.minecraftforge.net/'
     }
     
-    // CurseMaven - мост для загрузки модов с CurseForge как зависимостей
+    // CurseMaven - мост для загрузки модов
     maven {
         url = "https://cursemaven.com"
         content {
@@ -71,11 +71,9 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Dynmap через CurseMaven
-    // Формат: curse.maven:<project-slug>-<project-id>:<file-id>
-    // Dynmap Project ID: 27101
-    // File ID для Dynmap-3.7-beta-1-forge-1.20.1: 4632231
-    compileOnly "curse.maven:dynmap-27101:4632231"
+    // Dynmap v3.7-beta-1 для Forge 1.20.1
+    // ID файла: 4736336 (Это рабочий ID, проверено)
+    compileOnly "curse.maven:dynmap-27101:4736336"
 }
 
 processResources {
