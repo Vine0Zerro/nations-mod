@@ -17,7 +17,7 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 repositories {
     maven { url = 'https://maven.minecraftforge.net/' }
-    maven { url = 'https://repo.mikeprimm.com/' } // <--- Репозиторий DynMap
+    maven { url = 'https://repo.bluecolored.de/releases' } // <--- Репозиторий BlueMap
     mavenCentral()
 }
 
@@ -46,8 +46,8 @@ minecraft {
 
 dependencies {
     minecraft "net.minecraftforge:forge:1.20.1-47.2.0"
-    // Подключаем API DynMap (compileOnly значит, что он нужен только для кода, но не включается внутрь файла)
-    compileOnly "us.dynmap:DynmapCoreAPI:3.4" 
+    // API BlueMap
+    compileOnly "de.bluecolored.bluemap:BlueMapAPI:2.7.3" 
 }
 
 processResources {
