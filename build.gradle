@@ -1,22 +1,32 @@
-plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+buildscript {
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net/' }
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'net.minecraftforge.gradle:ForgeGradle:6.0.47'
+    }
 }
 
-repositories {
-    maven { url 'https://repo.mikeprimm.com/' }  // Репозиторий для Dynmap API
-}
+apply plugin: 'net.minecraftforge.gradle'
 
-version = mod_version
-group = mod_group
+version = '1.0.0'
+group = 'com.nations'
+
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
+repositories {
+    maven { url = 'https://maven.minecraftforge.net/' }
+    maven { url = 'https://repo.mikeprimm.com/' } // <--- Репозиторий DynMap
+    mavenCentral()
+}
+
 minecraft {
-    mappings channel: 'official', version: minecraft_version
+    mappings channel: 'official', version: '1.20.1'
+
     runs {
         client {
             workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
             mods {
                 nations {
                     source sourceSets.main
@@ -25,8 +35,6 @@ minecraft {
         }
         server {
             workingDirectory project.file('run')
-            property 'forge.logging.markers', 'REGISTRIES'
-            property 'forge.logging.console.level', 'debug'
             mods {
                 nations {
                     source sourceSets.main
@@ -37,8 +45,9 @@ minecraft {
 }
 
 dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    compileOnly "us.dynmap:DynmapCoreAPI:3.7-beta-6"  // Правильная зависимость для Dynmap API (для Minecraft 1.20.1)
+    minecraft "net.minecraftforge:forge:1.20.1-47.2.0"
+    // Подключаем API DynMap (compileOnly значит, что он нужен только для кода, но не включается внутрь файла)
+    compileOnly "us.dynmap:DynmapCoreAPI:3.4" 
 }
 
 processResources {
