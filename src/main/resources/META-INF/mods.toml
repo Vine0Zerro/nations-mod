@@ -8,7 +8,6 @@ version="1.0.0"
 displayName="Nations Mod"
 description="Towns, Nations, Claims, Wars"
 
-# Зависимость от Minecraft
 [[dependencies.nations]]
 modId="minecraft"
 mandatory=true
@@ -16,7 +15,6 @@ versionRange="[1.20.1]"
 ordering="NONE"
 side="BOTH"
 
-# Зависимость от Forge
 [[dependencies.nations]]
 modId="forge"
 mandatory=true
@@ -24,10 +22,10 @@ versionRange="[47,)"
 ordering="NONE"
 side="BOTH"
 
-# Зависимость от Dynmap (ВАЖНО: mandatory=false)
+# Зависимость от BlueMap (опциональная)
 [[dependencies.nations]]
-modId="dynmap"
+modId="bluemap"
 mandatory=false
-versionRange="[3.0,)"
+versionRange="[5.0,)"
 ordering="AFTER"
 side="BOTH"
