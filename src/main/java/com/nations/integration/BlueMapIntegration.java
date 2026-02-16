@@ -16,7 +16,7 @@ public class BlueMapIntegration {
     private static Object blueMapAPI = null;
     private static final String MARKER_SET_ID = "nations_towns";
 
-    // Кэш (без изменений)
+    // Кэш рефлексии
     private static Class<?> clsBlueMapAPI, clsBlueMapMap, clsMarkerSet, clsShapeMarker, clsPOIMarker, clsShape, clsVector2d, clsColor;
     private static Method mGetInstance, mGetMaps, mGetId, mGetMarkerSets;
     private static Method mMarkerSetBuilder, mMarkerSetLabel, mMarkerSetBuild, mMarkerSetGetMarkers;
@@ -175,7 +175,7 @@ public class BlueMapIntegration {
             mShapeMarkerDepthTest.invoke(builder, false);
             mShapeMarkerFillColor.invoke(builder, fillColor);
             mShapeMarkerLineColor.invoke(builder, lineColor);
-            mShapeMarkerLineWidth.invoke(builder, 3); // Граница
+            mShapeMarkerLineWidth.invoke(builder, 3);
             mShapeMarkerDetail.invoke(builder, popup);
 
             Object marker = mShapeMarkerBuild.invoke(builder);
@@ -239,42 +239,43 @@ public class BlueMapIntegration {
     private static String buildPopup(Town town, String nationName, int r, int g, int b) {
         StringBuilder sb = new StringBuilder();
         
-        // CSS Reset для BlueMap
-        String containerStyle = "font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; " +
-                                "background: rgba(10, 10, 15, 0.95); " +
-                                "width: 250px; padding: 0; margin: -10px; border-radius: 8px; color: #eee; " +
-                                "border: 1px solid rgba(255,255,255,0.1); overflow: hidden;";
+        // CSS
+        // margin: -10px убирает стандартные отступы BlueMap
+        String containerStyle = "font-family: 'Segoe UI', Roboto, sans-serif; background: rgba(10, 10, 15, 0.95); " +
+                                "padding: 12px; border-radius: 8px; color: #fff; min-width: 240px; " +
+                                "margin: -10px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.5);";
         
-        String headerStyle = "padding: 15px 10px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.02);";
-        String bodyStyle = "padding: 12px;";
+        // Flex для строк: метка слева, значение справа (рядом)
+        String rowStyle = "display: flex; align-items: baseline; margin-bottom: 5px; font-size: 14px;";
         
-        String rowStyle = "display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 13px;";
-        String labelStyle = "color: #888; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;";
-        String valStyle = "color: #fff; font-weight: 500; text-align: right; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;";
+        // Нейтральная метка (обычный шрифт, серый)
+        String labelStyle = "color: #AAAAAA; font-weight: 500; margin-right: 8px; white-space: nowrap;";
+        
+        // Значение (ЖИРНЫЙ шрифт)
+        String valueStyle = "font-weight: bold; flex-grow: 1; text-align: left;";
 
         String titleColor = String.format("rgb(%d, %d, %d)", r, g, b);
         if (town.isAtWar()) titleColor = "#FF4444";
 
         sb.append("<div style=\"").append(containerStyle).append("\">");
 
-        // --- HEADER ---
-        sb.append("<div style=\"").append(headerStyle).append("\">");
-        
-        String natColor = town.getNationName() != null ? titleColor : "#888";
-        sb.append("<div style=\"font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 2px;\">Нация</div>");
-        sb.append("<div style=\"font-size: 15px; font-weight: 800; color: ").append(natColor).append(";\">")
-          .append(nationName).append("</div>");
-        
-        sb.append("<div style=\"margin-top: 8px; font-size: 11px; text-transform: uppercase; color: #666; letter-spacing: 1px; margin-bottom: 2px;\">Город</div>");
-        sb.append("<div style=\"font-size: 18px; font-weight: 900; color: #FFD700;\">")
-          .append(town.getName()).append("</div>");
-        
-        sb.append("</div>");
+        // 1. Нация
+        String natColor = town.getNationName() != null ? titleColor : "#FFFFFF";
+        sb.append("<div style=\"").append(rowStyle).append("\">")
+          .append("<span style=\"").append(labelStyle).append("\">Нация:</span>")
+          .append("<span style=\"").append(valueStyle).append("color:").append(natColor).append(";\">")
+          .append(nationName).append("</span></div>");
 
-        // --- BODY ---
-        sb.append("<div style=\"").append(bodyStyle).append("\">");
+        // 2. Город
+        sb.append("<div style=\"").append(rowStyle).append("\">")
+          .append("<span style=\"").append(labelStyle).append("\">Город:</span>")
+          .append("<span style=\"").append(valueStyle).append("color: #FFD700;\">") // Золотой
+          .append(town.getName()).append("</span></div>");
 
-        // Мэр
+        // Разделитель (чуть светлее)
+        sb.append("<hr style=\"border: 0; border-top: 1px solid rgba(255,255,255,0.3); margin: 8px 0;\">");
+
+        // 3. Мэр (рядом с меткой)
         String mayorName = "Неизвестно";
         if (NationsData.getServer() != null) {
             var p = NationsData.getServer().getPlayerList().getPlayer(town.getMayor());
@@ -282,13 +283,13 @@ public class BlueMapIntegration {
         }
         sb.append("<div style=\"").append(rowStyle).append("\">")
           .append("<span style=\"").append(labelStyle).append("\">Мэр:</span>")
-          .append("<span style=\"").append(valStyle).append(" color: #FFD700;\">").append(mayorName).append("</span>")
-          .append("</div>");
+          .append("<span style=\"").append(valueStyle).append("color: #FFAA00;\">") // Оранжевый для мэра
+          .append(mayorName).append("</span></div>");
 
-        // Жители
-        sb.append("<div style=\"display: flex; flex-direction: column; margin-top: 10px;\">");
-        sb.append("<span style=\"").append(labelStyle).append(" margin-bottom: 4px;\">Жители:</span>");
-        sb.append("<div style=\"font-size: 12px; color: #ccc; line-height: 1.4;\">");
+        // 4. Жители (сразу после двоеточия)
+        sb.append("<div style=\"display: flex; align-items: baseline; font-size: 14px;\">")
+          .append("<span style=\"").append(labelStyle).append("\">Жители:</span>")
+          .append("<span style=\"color: #DDDDDD; font-weight: bold; line-height: 1.3; flex-grow: 1;\">");
         
         List<String> names = new ArrayList<>();
         int limit = 0;
@@ -303,16 +304,16 @@ public class BlueMapIntegration {
             limit++;
         }
         sb.append(String.join(", ", names));
-        sb.append("</div></div>");
+        sb.append("</span></div>");
 
         // Статусы
         if (town.isAtWar()) {
-            sb.append("<div style=\"margin-top:12px; background: rgba(255,0,0,0.15); border: 1px solid rgba(255,0,0,0.3); color:#ff5555; font-weight:bold; font-size: 12px; text-align:center; padding: 6px; border-radius: 4px; text-transform: uppercase;\">⚠ ИДЕТ ВОЙНА</div>");
+            sb.append("<div style=\"margin-top:10px; color:#ff5555; font-weight:900; text-align:center; text-transform: uppercase;\">⚠ ИДЕТ ВОЙНА</div>");
         } else if (town.isCaptured()) {
-            sb.append("<div style=\"margin-top:12px; background: rgba(255,140,0,0.15); border: 1px solid rgba(255,140,0,0.3); color:#ffaa00; font-weight:bold; font-size: 12px; text-align:center; padding: 6px; border-radius: 4px; text-transform: uppercase;\">🏴 ЗАХВАЧЕН</div>");
+            sb.append("<div style=\"margin-top:10px; color:#ffaa00; font-weight:900; text-align:center; text-transform: uppercase;\">🏴 ЗАХВАЧЕН</div>");
         }
 
-        sb.append("</div></div>");
+        sb.append("</div>");
         return sb.toString();
     }
 }
