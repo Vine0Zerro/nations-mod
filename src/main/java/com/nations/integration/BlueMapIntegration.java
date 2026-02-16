@@ -197,10 +197,10 @@ public class BlueMapIntegration {
             
             // Используем файлы assets/crown.png и assets/town.png
             if (isCapital) {
-                // Путь, anchorX (середина), anchorY (середина)
-                mPOIMarkerIcon.invoke(builder, "assets/crown.png", 16, 16); 
+                // Убрали "assets/", теперь путь просто "crown.png"
+                mPOIMarkerIcon.invoke(builder, "crown.png", 32, 32); 
             } else {
-                mPOIMarkerIcon.invoke(builder, "assets/town.png", 8, 8);
+                mPOIMarkerIcon.invoke(builder, "town.png", 16, 16);
             }
 
             Object spawnMarker = mPOIMarkerBuild.invoke(builder);
