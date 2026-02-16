@@ -1,106 +1,95 @@
+// FILE: src\main\java\com\nations\integration\DynmapIntegration.java
 package com.nations.integration;
 
 import com.nations.NationsMod;
-import com.nations.data.*;
+import com.nations.data.Nation;
+import com.nations.data.NationsData;
+import com.nations.data.Town;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.fml.ModList;
+import org.dynmap.DynmapCommonAPI;
+import org.dynmap.DynmapCommonAPIListener;
+import org.dynmap.markers.AreaMarker;
+import org.dynmap.markers.MarkerAPI;
+import org.dynmap.markers.MarkerSet;
 
-import java.lang.reflect.Method;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
-public class DynmapIntegration {
+public class DynmapIntegration extends DynmapCommonAPIListener {
 
-    private static Object markerAPI = null;
-    private static Object townMarkerSet = null;
-    private static boolean enabled = false;
+    private static MarkerAPI markerAPI = null;
+    private static MarkerSet townMarkerSet = null;
+    private static boolean registered = false;
 
+    // Этот метод вызываем из NationsMod
     public static void init() {
         if (!ModList.get().isLoaded("dynmap")) {
-            NationsMod.LOGGER.info("DynMap не найден — интеграция отключена");
+            NationsMod.LOGGER.info("DynMap не найден — интеграция отключена.");
             return;
         }
-        NationsMod.LOGGER.info("DynMap обнаружен. Подключение через API Bridge...");
-    }
-
-    private static void tryConnect() {
-        if (enabled) return;
-
-        try {
-            // Пытаемся получить API через официальный листенер Dynmap
-            Class<?> apiListenerClass = Class.forName("org.dynmap.DynmapCommonAPIListener");
-            Method getApiMethod = apiListenerClass.getMethod("getApi");
-            Object api = getApiMethod.invoke(null);
-
-            if (api != null) {
-                Method getMarkerAPI = api.getClass().getMethod("getMarkerAPI");
-                markerAPI = getMarkerAPI.invoke(api);
-                
-                if (markerAPI != null) {
-                    setupMarkerSets();
-                    enabled = true;
-                    NationsMod.LOGGER.info("DynMap интеграция успешно запущена через API Bridge!");
-                }
-            }
-        } catch (Exception e) {
-            // Если не вышло, пробуем через Core напрямую (для версии 3.7+)
-            try {
-                Class<?> coreClass = Class.forName("org.dynmap.DynmapCore");
-                Object core = coreClass.getField("instance").get(null);
-                if (core != null) {
-                    markerAPI = core.getClass().getMethod("getMarkerAPI").invoke(core);
-                    if (markerAPI != null) {
-                        setupMarkerSets();
-                        enabled = true;
-                        NationsMod.LOGGER.info("DynMap интеграция запущена через Core Instance!");
-                    }
-                }
-            } catch (Exception e2) {
-                // Ждем следующего тика
-            }
-        }
-    }
-
-    private static void setupMarkerSets() throws Exception {
-        Method getSet = markerAPI.getClass().getMethod("getMarkerSet", String.class);
-        Object existing = getSet.invoke(markerAPI, "nations.towns");
-        if (existing != null) {
-            existing.getClass().getMethod("deleteMarkerSet").invoke(existing);
-        }
-
-        Method createSet = markerAPI.getClass().getMethod("createMarkerSet", 
-            String.class, String.class, Set.class, boolean.class);
         
-        townMarkerSet = createSet.invoke(markerAPI, "nations.towns", "Города и Нации", null, false);
+        // Регистрируем слушателя только если мод загружен, 
+        // чтобы избежать ошибок ClassNotFound, если Dynmap нет.
+        try {
+            new DynmapIntegration().register();
+            registered = true;
+            NationsMod.LOGGER.info("DynMap API Listener зарегистрирован.");
+        } catch (Exception e) {
+            NationsMod.LOGGER.error("Ошибка регистрации Dynmap listener: " + e.getMessage());
+        }
+    }
+
+    private void register() {
+        DynmapCommonAPIListener.register(this);
+    }
+
+    @Override
+    public void apiEnabled(DynmapCommonAPI api) {
+        // Этот метод вызовется сам, когда Dynmap будет готов
+        markerAPI = api.getMarkerAPI();
+        if (markerAPI != null) {
+            setupMarkerSet();
+            NationsMod.LOGGER.info("DynMap API успешно получен!");
+        }
+    }
+
+    private static void setupMarkerSet() {
+        if (markerAPI == null) return;
+        
+        // Создаем или получаем слой маркеров
+        townMarkerSet = markerAPI.getMarkerSet("nations.towns");
+        if (townMarkerSet == null) {
+            townMarkerSet = markerAPI.createMarkerSet("nations.towns", "Города и Нации", null, false);
+        } else {
+            townMarkerSet.setMarkerSetLabel("Города и Нации");
+        }
     }
 
     public static void updateAllMarkers() {
-        if (!enabled) tryConnect();
-        if (!enabled || townMarkerSet == null) return;
+        if (markerAPI == null || townMarkerSet == null) return;
 
         try {
-            clearMarkers();
+            // Очищаем старые маркеры, которых больше нет
+            // (В простой реализации можно перерисовывать всё, но лучше удалять лишнее)
+            // Здесь мы просто удаляем всё и рисуем заново для надежности
+            Set<AreaMarker> oldMarkers = new HashSet<>(townMarkerSet.getAreaMarkers());
+            for (AreaMarker marker : oldMarkers) {
+                marker.deleteMarker();
+            }
+
             for (Town town : NationsData.getAllTowns()) {
                 drawTown(town);
             }
         } catch (Exception e) {
-            NationsMod.LOGGER.debug("Dynmap Update Error: " + e.getMessage());
+            NationsMod.LOGGER.debug("Ошибка обновления Dynmap: " + e.getMessage());
         }
     }
 
-    private static void clearMarkers() throws Exception {
-        Method getAreas = townMarkerSet.getClass().getMethod("getAreaMarkers");
-        Set<?> areas = (Set<?>) getAreas.invoke(townMarkerSet);
-        if (areas != null) {
-            for (Object area : new HashSet<>(areas)) {
-                area.getClass().getMethod("deleteMarker").invoke(area);
-            }
-        }
-    }
-
-    private static void drawTown(Town town) throws Exception {
-        int color = 0x888888;
+    private static void drawTown(Town town) {
+        int color = 0x888888; // Серый по умолчанию
         String nationName = "";
-        
+
         if (town.getNationName() != null) {
             Nation nation = NationsData.getNation(town.getNationName());
             if (nation != null) {
@@ -112,31 +101,34 @@ public class DynmapIntegration {
         if (town.isAtWar()) color = 0xFF0000;
         if (town.isCaptured()) color = 0xFF6600;
 
+        // Рисуем каждый чанк как отдельный квадрат (самый простой способ без сложных алгоритмов объединения)
         for (ChunkPos cp : town.getClaimedChunks()) {
-            double x1 = cp.x * 16;
-            double z1 = cp.z * 16;
-            double x2 = x1 + 16;
-            double z2 = z1 + 16;
+            double[] x = new double[4];
+            double[] z = new double[4];
+            
+            // Координаты углов чанка
+            x[0] = cp.x * 16.0; z[0] = cp.z * 16.0;
+            x[1] = x[0] + 16.0; z[1] = z[0];
+            x[2] = x[0] + 16.0; z[2] = z[0] + 16.0;
+            x[3] = x[0];        z[3] = z[0] + 16.0;
 
             String markerId = "n_" + town.getName() + "_" + cp.x + "_" + cp.z;
+
+            AreaMarker marker = townMarkerSet.createAreaMarker(markerId, buildLabel(town, nationName), false, "world", x, z, false);
             
-            Method createArea = townMarkerSet.getClass().getMethod("createAreaMarker",
-                String.class, String.class, boolean.class, String.class, 
-                double[].class, double[].class, boolean.class);
-
-            // Параметры: ID, Label, isHTML, World, X[], Z[], persistent
-            Object area = createArea.invoke(townMarkerSet, markerId, buildLabel(town, nationName), 
-                true, "world", new double[]{x1, x2, x2, x1}, new double[]{z1, z1, z2, z2}, false);
-
-            if (area != null) {
-                area.getClass().getMethod("setFillStyle", double.class, int.class).invoke(area, 0.35, color);
-                area.getClass().getMethod("setLineStyle", int.class, double.class, int.class).invoke(area, 2, 0.8, color);
+            if (marker != null) {
+                // Настройка стиля: 0.8 непрозрачность линии, 2 толщина, 0.35 непрозрачность заливки
+                marker.setLineStyle(2, 0.8, color);
+                marker.setFillStyle(0.35, color);
+                // Включаем поддержку HTML в описании
+                marker.setDescription(buildLabel(town, nationName)); 
             }
         }
     }
 
     private static String buildLabel(Town town, String nationName) {
         String borderColor = town.isAtWar() ? "#F00" : "#FFD700";
+        // HTML разметка для всплывающего окна
         return "<div style='padding:10px; background:rgba(0,0,0,0.85); border:2px solid " + borderColor + "; border-radius:10px; color:white;'>" +
                "<b style='font-size:14px; color:#FFD700;'>🏰 " + town.getName() + "</b>" +
                (nationName.isEmpty() ? "" : "<br><span style='color:#5af;'>🏛 Нация: " + nationName + "</span>") +
