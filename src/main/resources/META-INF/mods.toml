@@ -4,7 +4,7 @@ license="MIT"
 
 [[mods]]
 modId="nations"
-version="1.0.0"
+version="${mod_version}"  # Если в оригинале было "1.0.0", замени на это, если используется плейсхолдер
 displayName="Nations Mod"
 description="Towns, Nations, Claims, Wars"
 
@@ -19,5 +19,12 @@ side="BOTH"
 modId="minecraft"
 mandatory=true
 versionRange="[1.20.1]"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.nations]]
+modId="dynmap"
+mandatory=false
+versionRange="[3.7,)"
 ordering="NONE"
 side="BOTH"
