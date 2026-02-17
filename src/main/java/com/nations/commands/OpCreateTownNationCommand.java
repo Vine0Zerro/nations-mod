@@ -151,7 +151,7 @@ public class OpCreateTownNationCommand {
         for (NationTemplate.TownTemplate tt : template.getTowns()) {
             Town town = new Town(tt.name, playerId);
             town.setTaxRate(0.05);
-            town.setCustomMaxChunks(tt.getChunkCount());
+            town.setCustomMaxChunks(tt.getChunkCount()); // Устанавливаем лимит равный размеру
 
             int claimed = 0;
             for (int[] offset : tt.chunks) {
