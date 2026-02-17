@@ -273,11 +273,14 @@ public class BlueMapIntegration {
         String containerStyle = "font-family: 'Segoe UI', sans-serif; background: rgba(10, 10, 15, 0.95); " +
                 "padding: 12px; border-radius: 8px; color: #fff; min-width: 260px; " +
                 "margin: -10px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.8); " +
-                "position: relative; z-index: 10000; pointer-events: auto;";
+                "position: relative; pointer-events: auto;";
 
-        String closeBtnStyle = "position: absolute; top: 2px; right: 8px; color: #aaa; font-size: 20px; cursor: pointer; font-weight: bold;";
+        String closeBtnStyle = "position: absolute; top: 2px; right: 8px; color: #aaa; font-size: 20px; " +
+                "cursor: pointer; font-weight: bold; line-height: 1; padding: 2px 4px; " +
+                "transition: color 0.15s; user-select: none;";
 
-        String gridStyle = "display: grid; grid-template-columns: min-content 1fr; align-items: baseline; column-gap: 10px; row-gap: 4px; font-size: 14px;";
+        String gridStyle = "display: grid; grid-template-columns: min-content 1fr; align-items: baseline; " +
+                "column-gap: 10px; row-gap: 4px; font-size: 14px;";
 
         String labelStyle = "color: #999; font-weight: 500; white-space: nowrap;";
         String valStyle = "font-weight: bold; text-align: left;";
@@ -287,7 +290,10 @@ public class BlueMapIntegration {
 
         sb.append("<div class=\"nations-popup\" style=\"").append(containerStyle).append("\">");
 
-        sb.append("<div style=\"").append(closeBtnStyle).append("\" onclick=\"var p=this.closest('.bm-marker-labelpopup'); if(p) p.style.display='none'; var p2=this.closest('.bm-marker-popup'); if(p2) p2.style.display='none'; event.stopPropagation();\">×</div>");
+        // Крестик — ищет ближайший bm-marker-labelpopup или bm-marker-popup и скрывает
+        sb.append("<div class=\"nations-close-btn\" style=\"").append(closeBtnStyle)
+          .append("\" onmouseover=\"this.style.color='#fff'\" onmouseout=\"this.style.color='#aaa'\"")
+          .append(" onclick=\"var lp=this.closest('.bm-marker-labelpopup'); if(lp){lp.style.display='none';} var mp=this.closest('.bm-marker-popup'); if(mp){mp.style.display='none';} event.stopPropagation();\">×</div>");
 
         sb.append("<div style=\"").append(gridStyle).append("\">");
 
