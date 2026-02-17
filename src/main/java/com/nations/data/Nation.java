@@ -9,10 +9,11 @@ public class Nation {
     private String name;
     private UUID leader;
     private NationColor color;
+    private String capitalTown = null;
     private Set<String> towns = new HashSet<>();
     private Set<UUID> pendingInvites = new HashSet<>();
     private Set<String> warTargets = new HashSet<>();
-    private Map<String, String> diplomacy = new HashMap<>(); // nationName -> "neutral"/"hostile"/"friendly"
+    private Map<String, String> diplomacy = new HashMap<>();
     private String allianceName = null;
     private double nationTaxRate = 0.03;
     private int warsWon = 0;
@@ -25,11 +26,12 @@ public class Nation {
         this.color = color;
     }
 
-    // === Getters/Setters ===
     public String getName() { return name; }
     public UUID getLeader() { return leader; }
     public NationColor getColor() { return color; }
     public void setColor(NationColor color) { this.color = color; }
+    public String getCapitalTown() { return capitalTown; }
+    public void setCapitalTown(String townName) { this.capitalTown = townName; }
     public Set<String> getTowns() { return towns; }
     public Set<UUID> getPendingInvites() { return pendingInvites; }
     public Set<String> getWarTargets() { return warTargets; }
@@ -44,17 +46,19 @@ public class Nation {
     public int getTownsCaptured() { return townsCaptured; }
     public void addTownCaptured() { this.townsCaptured++; }
 
-    // === Towns ===
     public void addTown(String townName) { towns.add(townName); }
     public void removeTown(String townName) { towns.remove(townName); }
     public boolean hasTown(String townName) { return towns.contains(townName); }
 
-    // === War ===
+    public boolean isCapital(String townName) {
+        if (capitalTown != null) return capitalTown.equals(townName);
+        return false;
+    }
+
     public void declareWar(String nationName) { warTargets.add(nationName); }
     public void endWar(String nationName) { warTargets.remove(nationName); }
     public boolean isAtWarWith(String nationName) { return warTargets.contains(nationName); }
 
-    // === Diplomacy ===
     public void setDiplomacy(String nationName, String status) {
         diplomacy.put(nationName.toLowerCase(), status);
     }
@@ -65,7 +69,6 @@ public class Nation {
 
     public Map<String, String> getAllDiplomacy() { return diplomacy; }
 
-    // === Stats ===
     public int getRating() {
         int score = 0;
         score += towns.size() * 50;
@@ -93,12 +96,12 @@ public class Nation {
         return total;
     }
 
-    // === Serialization ===
     public JsonObject toJson() {
         JsonObject json = new JsonObject();
         json.addProperty("name", name);
         json.addProperty("leader", leader.toString());
         json.addProperty("color", color.getId());
+        if (capitalTown != null) json.addProperty("capitalTown", capitalTown);
         if (allianceName != null) json.addProperty("alliance", allianceName);
         json.addProperty("nationTaxRate", nationTaxRate);
         json.addProperty("warsWon", warsWon);
@@ -130,6 +133,7 @@ public class Nation {
         NationColor color = NationColor.fromId(json.get("color").getAsString());
         Nation nation = new Nation(name, leader, color);
 
+        if (json.has("capitalTown")) nation.capitalTown = json.get("capitalTown").getAsString();
         if (json.has("alliance")) nation.allianceName = json.get("alliance").getAsString();
         if (json.has("nationTaxRate")) nation.nationTaxRate = json.get("nationTaxRate").getAsDouble();
         if (json.has("warsWon")) nation.warsWon = json.get("warsWon").getAsInt();
