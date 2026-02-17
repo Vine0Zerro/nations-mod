@@ -25,7 +25,9 @@ public class NationsMod {
     public static final String MODID = "nations";
     public static final Logger LOGGER = LogManager.getLogger();
     private int tickCounter = 0;
+    private int blueMapTickCounter = 0;
     private static final int TAX_INTERVAL_TICKS = 20 * 60 * 60;
+    private static final int BLUEMAP_REFRESH_TICKS = 20 * 60; // 60 секунд
 
     public NationsMod() {
         FMLJavaModLoadingContext.get().getModEventBus()
@@ -70,10 +72,19 @@ public class NationsMod {
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         tickCounter++;
+        blueMapTickCounter++;
 
         if (tickCounter >= TAX_INTERVAL_TICKS) {
             tickCounter = 0;
             collectAllTaxes();
+        }
+
+        // Периодическое обновление BlueMap маркеров
+        if (blueMapTickCounter >= BLUEMAP_REFRESH_TICKS) {
+            blueMapTickCounter = 0;
+            try {
+                BlueMapIntegration.updateAllMarkers();
+            } catch (Exception ignored) {}
         }
     }
 
