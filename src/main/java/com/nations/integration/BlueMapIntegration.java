@@ -22,7 +22,7 @@ public class BlueMapIntegration {
     private static Method mGetInstance, mGetMaps, mGetId, mGetMarkerSets;
     private static Method mMarkerSetBuilder, mMarkerSetLabel, mMarkerSetBuild, mMarkerSetGetMarkers;
     private static Method mShapeMarkerBuilder, mShapeMarkerLabel, mShapeMarkerShape, mShapeMarkerDepthTest, mShapeMarkerFillColor, mShapeMarkerLineColor, mShapeMarkerLineWidth, mShapeMarkerDetail, mShapeMarkerBuild;
-    private static Method mPOIMarkerToBuilder, mPOIMarkerLabel, mPOIMarkerPosition, mPOIMarkerDetail, mPOIMarkerIcon, mPOIMarkerBuild;
+    private static Method mPOIMarkerBuilder, mPOIMarkerLabel, mPOIMarkerPosition, mPOIMarkerDetail, mPOIMarkerIcon, mPOIMarkerBuild;
     private static Constructor<?> cVector2d, cShape, cColor;
 
     public static void init() {
@@ -31,6 +31,7 @@ public class BlueMapIntegration {
             loadClasses();
             checkApi();
             enabled = true;
+            NationsMod.LOGGER.info("BlueMap integration enabled!");
         } catch (Exception e) {
             NationsMod.LOGGER.error("BlueMap init error: " + e.getMessage());
         }
@@ -69,8 +70,8 @@ public class BlueMapIntegration {
         mShapeMarkerDetail = clsShapeMarkerBuilder.getMethod("detail", String.class);
         mShapeMarkerBuild = clsShapeMarkerBuilder.getMethod("build");
 
-        mPOIMarkerToBuilder = clsPOIMarker.getMethod("toBuilder");
-        Class<?> clsPOIMarkerBuilder = mPOIMarkerToBuilder.getReturnType();
+        mPOIMarkerBuilder = clsPOIMarker.getMethod("builder");
+        Class<?> clsPOIMarkerBuilder = mPOIMarkerBuilder.getReturnType();
         mPOIMarkerLabel = clsPOIMarkerBuilder.getMethod("label", String.class);
         mPOIMarkerPosition = clsPOIMarkerBuilder.getMethod("position", double.class, double.class, double.class);
         mPOIMarkerDetail = clsPOIMarkerBuilder.getMethod("detail", String.class);
@@ -112,49 +113,49 @@ public class BlueMapIntegration {
                 Map<String, Object> markers = (Map<String, Object>) mMarkerSetGetMarkers.invoke(markerSet);
                 markers.clear();
 
-                // Рисуем границы наций (объединённые территории всех городов нации)
+                // 1. Рисуем внешние границы наций
                 for (Nation nation : NationsData.getAllNations()) {
                     drawNationBorder(nation, markers);
                 }
 
-                // Рисуем внутренние границы между городами одной нации
+                // 2. Рисуем внутренние границы между городами одной нации
                 for (Nation nation : NationsData.getAllNations()) {
                     drawInnerTownBorders(nation, markers);
                 }
 
-                // Рисуем города без нации отдельно
+                // 3. Рисуем города без нации
                 for (Town town : NationsData.getAllTowns()) {
                     if (town.getNationName() == null) {
-                        drawTownMerged(town, markers);
+                        drawStandaloneTown(town, markers);
                     }
                 }
 
-                // POI маркеры для всех городов
+                // 4. POI иконки для всех городов
                 for (Town town : NationsData.getAllTowns()) {
                     drawTownPOI(town, markers);
                 }
             }
         } catch (Exception e) {
+            NationsMod.LOGGER.error("BlueMap marker update error: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
+    // === ВНЕШНЯЯ ГРАНИЦА НАЦИИ ===
     private static void drawNationBorder(Nation nation, Map<String, Object> markers) throws Exception {
         Set<ChunkPos> allChunks = new HashSet<>();
         for (String townName : nation.getTowns()) {
             Town town = NationsData.getTown(townName);
-            if (town != null) {
-                allChunks.addAll(town.getClaimedChunks());
-            }
+            if (town != null) allChunks.addAll(town.getClaimedChunks());
         }
         if (allChunks.isEmpty()) return;
 
         Set<String> edges = new HashSet<>();
         for (ChunkPos cp : allChunks) {
-            double x1 = cp.x * 16;
-            double z1 = cp.z * 16;
-            double x2 = x1 + 16;
-            double z2 = z1 + 16;
+            double x1 = cp.x * 16.0;
+            double z1 = cp.z * 16.0;
+            double x2 = x1 + 16.0;
+            double z2 = z1 + 16.0;
             toggleEdge(edges, x1, z1, x2, z1);
             toggleEdge(edges, x2, z1, x2, z2);
             toggleEdge(edges, x2, z2, x1, z2);
@@ -176,7 +177,6 @@ public class BlueMapIntegration {
             Town town = NationsData.getTown(townName);
             if (town != null && town.isAtWar()) { atWar = true; break; }
         }
-
         if (atWar) {
             fillColor = cColor.newInstance(255, 0, 0, 0.25f);
             lineColor = cColor.newInstance(255, 0, 0, 1.0f);
@@ -186,13 +186,11 @@ public class BlueMapIntegration {
         int polyIndex = 0;
 
         for (List<Point> polyPoints : polygons) {
+            if (polyPoints.size() < 3) continue;
             Object vectorArray = java.lang.reflect.Array.newInstance(clsVector2d, polyPoints.size());
             for (int i = 0; i < polyPoints.size(); i++) {
-                Point p = polyPoints.get(i);
-                Object vec = cVector2d.newInstance(p.x, p.z);
-                java.lang.reflect.Array.set(vectorArray, i, vec);
+                java.lang.reflect.Array.set(vectorArray, i, cVector2d.newInstance(polyPoints.get(i).x, polyPoints.get(i).z));
             }
-
             Object shape = cShape.newInstance(vectorArray);
             Object builder = mShapeMarkerBuilder.invoke(null);
             mShapeMarkerLabel.invoke(builder, nation.getName());
@@ -202,81 +200,64 @@ public class BlueMapIntegration {
             mShapeMarkerLineColor.invoke(builder, lineColor);
             mShapeMarkerLineWidth.invoke(builder, 4);
             mShapeMarkerDetail.invoke(builder, popup);
-
-            Object marker = mShapeMarkerBuild.invoke(builder);
-            markers.put("nation_" + nation.getName() + "_" + (polyIndex++), marker);
+            markers.put("nation_" + nation.getName() + "_" + (polyIndex++), mShapeMarkerBuild.invoke(builder));
         }
     }
 
+    // === ВНУТРЕННИЕ ГРАНИЦЫ МЕЖДУ ГОРОДАМИ ОДНОЙ НАЦИИ ===
     private static void drawInnerTownBorders(Nation nation, Map<String, Object> markers) throws Exception {
-        Set<ChunkPos> allNationChunks = new HashSet<>();
         Map<ChunkPos, String> chunkToTown = new HashMap<>();
-
         for (String townName : nation.getTowns()) {
             Town town = NationsData.getTown(townName);
             if (town == null) continue;
             for (ChunkPos cp : town.getClaimedChunks()) {
-                allNationChunks.add(cp);
                 chunkToTown.put(cp, townName);
             }
         }
 
+        // Находим рёбра между разными городами
         Set<String> innerEdges = new HashSet<>();
+        for (Map.Entry<ChunkPos, String> entry : chunkToTown.entrySet()) {
+            ChunkPos cp = entry.getKey();
+            String myTown = entry.getValue();
+            double x1 = cp.x * 16.0;
+            double z1 = cp.z * 16.0;
+            double x2 = x1 + 16.0;
+            double z2 = z1 + 16.0;
 
-        for (ChunkPos cp : allNationChunks) {
-            String myTown = chunkToTown.get(cp);
-            double x1 = cp.x * 16;
-            double z1 = cp.z * 16;
-            double x2 = x1 + 16;
-            double z2 = z1 + 16;
-
-            ChunkPos north = new ChunkPos(cp.x, cp.z - 1);
-            ChunkPos south = new ChunkPos(cp.x, cp.z + 1);
-            ChunkPos east = new ChunkPos(cp.x + 1, cp.z);
-            ChunkPos west = new ChunkPos(cp.x - 1, cp.z);
-
-            checkInnerEdge(innerEdges, chunkToTown, myTown, north, x1, z1, x2, z1);
-            checkInnerEdge(innerEdges, chunkToTown, myTown, south, x1, z2, x2, z2);
-            checkInnerEdge(innerEdges, chunkToTown, myTown, east, x2, z1, x2, z2);
-            checkInnerEdge(innerEdges, chunkToTown, myTown, west, x1, z1, x1, z2);
+            addInnerEdgeIfNeeded(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x, cp.z - 1), x1, z1, x2, z1);
+            addInnerEdgeIfNeeded(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x, cp.z + 1), x1, z2, x2, z2);
+            addInnerEdgeIfNeeded(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x + 1, cp.z), x2, z1, x2, z2);
+            addInnerEdgeIfNeeded(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x - 1, cp.z), x1, z1, x1, z2);
         }
 
         if (innerEdges.isEmpty()) return;
 
         int hex = nation.getColor().getHex();
-        int r = (hex >> 16) & 0xFF;
-        int g = (hex >> 8) & 0xFF;
-        int b = (hex) & 0xFF;
-
-        int dr = (int)(r * 0.7);
-        int dg = (int)(g * 0.7);
-        int db = (int)(b * 0.7);
-
-        Object lineColor = cColor.newInstance(dr, dg, db, 0.6f);
+        int r = Math.max(0, (int)(((hex >> 16) & 0xFF) * 0.6));
+        int g = Math.max(0, (int)(((hex >> 8) & 0xFF) * 0.6));
+        int b = Math.max(0, (int)((hex & 0xFF) * 0.6));
+        Object lineColor = cColor.newInstance(r, g, b, 0.7f);
 
         int edgeIndex = 0;
         for (String edge : innerEdges) {
             String[] pts = edge.split(">");
             String[] p1 = pts[0].split(",");
             String[] p2 = pts[1].split(",");
-
             double ex1 = Double.parseDouble(p1[0]);
             double ez1 = Double.parseDouble(p1[1]);
             double ex2 = Double.parseDouble(p2[0]);
             double ez2 = Double.parseDouble(p2[1]);
 
-            double dx = 0, dzOffset = 0;
-            if (Math.abs(ex1 - ex2) < 0.1) {
-                dx = 0.3;
-            } else {
-                dzOffset = 0.3;
-            }
+            double dx = 0, dz = 0;
+            if (Math.abs(ex1 - ex2) < 0.1) dx = 0.3;
+            else dz = 0.3;
 
             Object vectorArray = java.lang.reflect.Array.newInstance(clsVector2d, 4);
-            java.lang.reflect.Array.set(vectorArray, 0, cVector2d.newInstance(ex1 - dx, ez1 - dzOffset));
-            java.lang.reflect.Array.set(vectorArray, 1, cVector2d.newInstance(ex2 + dx, ez1 - dzOffset));
-            java.lang.reflect.Array.set(vectorArray, 2, cVector2d.newInstance(ex2 + dx, ez2 + dzOffset));
-            java.lang.reflect.Array.set(vectorArray, 3, cVector2d.newInstance(ex1 - dx, ez2 + dzOffset));
+            java.lang.reflect.Array.set(vectorArray, 0, cVector2d.newInstance(ex1 - dx, ez1 - dz));
+            java.lang.reflect.Array.set(vectorArray, 1, cVector2d.newInstance(ex2 + dx, ez1 - dz));
+            java.lang.reflect.Array.set(vectorArray, 2, cVector2d.newInstance(ex2 + dx, ez2 + dz));
+            java.lang.reflect.Array.set(vectorArray, 3, cVector2d.newInstance(ex1 - dx, ez2 + dz));
 
             Object shape = cShape.newInstance(vectorArray);
             Object builder = mShapeMarkerBuilder.invoke(null);
@@ -285,17 +266,15 @@ public class BlueMapIntegration {
             mShapeMarkerDepthTest.invoke(builder, false);
             mShapeMarkerFillColor.invoke(builder, lineColor);
             mShapeMarkerLineColor.invoke(builder, lineColor);
-            mShapeMarkerLineWidth.invoke(builder, 1);
+            mShapeMarkerLineWidth.invoke(builder, 2);
             mShapeMarkerDetail.invoke(builder, "");
-
-            Object marker = mShapeMarkerBuild.invoke(builder);
-            markers.put("inner_" + nation.getName() + "_" + (edgeIndex++), marker);
+            markers.put("inner_" + nation.getName() + "_" + (edgeIndex++), mShapeMarkerBuild.invoke(builder));
         }
     }
 
-    private static void checkInnerEdge(Set<String> innerEdges, Map<ChunkPos, String> chunkToTown,
-                                        String myTown, ChunkPos neighbor,
-                                        double x1, double z1, double x2, double z2) {
+    private static void addInnerEdgeIfNeeded(Set<String> innerEdges, Map<ChunkPos, String> chunkToTown,
+                                              String myTown, ChunkPos neighbor,
+                                              double x1, double z1, double x2, double z2) {
         String neighborTown = chunkToTown.get(neighbor);
         if (neighborTown != null && !neighborTown.equals(myTown)) {
             String key1 = x1 + "," + z1 + ">" + x2 + "," + z2;
@@ -306,16 +285,17 @@ public class BlueMapIntegration {
         }
     }
 
-    private static void drawTownMerged(Town town, Map<String, Object> markers) throws Exception {
+    // === ГОРОД БЕЗ НАЦИИ ===
+    private static void drawStandaloneTown(Town town, Map<String, Object> markers) throws Exception {
         Set<ChunkPos> chunks = town.getClaimedChunks();
         if (chunks.isEmpty()) return;
 
         Set<String> edges = new HashSet<>();
         for (ChunkPos cp : chunks) {
-            double x1 = cp.x * 16;
-            double z1 = cp.z * 16;
-            double x2 = x1 + 16;
-            double z2 = z1 + 16;
+            double x1 = cp.x * 16.0;
+            double z1 = cp.z * 16.0;
+            double x2 = x1 + 16.0;
+            double z2 = z1 + 16.0;
             toggleEdge(edges, x1, z1, x2, z1);
             toggleEdge(edges, x2, z1, x2, z2);
             toggleEdge(edges, x2, z2, x1, z2);
@@ -325,8 +305,6 @@ public class BlueMapIntegration {
         List<List<Point>> polygons = tracePolygons(edges);
 
         int r = 136, g = 136, b = 136;
-        String nationName = "Без нации";
-
         Object fillColor = cColor.newInstance(r, g, b, 0.4f);
         Object lineColor = cColor.newInstance(r, g, b, 0.9f);
 
@@ -338,17 +316,14 @@ public class BlueMapIntegration {
             lineColor = cColor.newInstance(255, 140, 0, 1.0f);
         }
 
-        String popup = buildPopup(town, nationName, r, g, b);
+        String popup = buildPopup(town, "Без нации", r, g, b);
         int polyIndex = 0;
-
         for (List<Point> polyPoints : polygons) {
+            if (polyPoints.size() < 3) continue;
             Object vectorArray = java.lang.reflect.Array.newInstance(clsVector2d, polyPoints.size());
             for (int i = 0; i < polyPoints.size(); i++) {
-                Point p = polyPoints.get(i);
-                Object vec = cVector2d.newInstance(p.x, p.z);
-                java.lang.reflect.Array.set(vectorArray, i, vec);
+                java.lang.reflect.Array.set(vectorArray, i, cVector2d.newInstance(polyPoints.get(i).x, polyPoints.get(i).z));
             }
-
             Object shape = cShape.newInstance(vectorArray);
             Object builder = mShapeMarkerBuilder.invoke(null);
             mShapeMarkerLabel.invoke(builder, town.getName());
@@ -358,12 +333,11 @@ public class BlueMapIntegration {
             mShapeMarkerLineColor.invoke(builder, lineColor);
             mShapeMarkerLineWidth.invoke(builder, 3);
             mShapeMarkerDetail.invoke(builder, popup);
-
-            Object marker = mShapeMarkerBuild.invoke(builder);
-            markers.put("p_" + town.getName() + "_" + (polyIndex++), marker);
+            markers.put("town_" + town.getName() + "_" + (polyIndex++), mShapeMarkerBuild.invoke(builder));
         }
     }
 
+    // === POI ИКОНКИ ГОРОДОВ ===
     private static void drawTownPOI(Town town, Map<String, Object> markers) throws Exception {
         if (town.getSpawnPos() == null) return;
 
@@ -384,9 +358,8 @@ public class BlueMapIntegration {
         }
 
         String popup = buildPopup(town, nationName, r, g, b);
-        String spawnId = "spawn_" + town.getName();
 
-        Object builder = mPOIMarkerToBuilder.invoke(null);
+        Object builder = mPOIMarkerBuilder.invoke(null);
         mPOIMarkerLabel.invoke(builder, town.getName());
         mPOIMarkerPosition.invoke(builder,
                 (double) town.getSpawnPos().getX(),
@@ -400,10 +373,10 @@ public class BlueMapIntegration {
             mPOIMarkerIcon.invoke(builder, ICON_TOWN_BASE64, 8, 8);
         }
 
-        Object spawnMarker = mPOIMarkerBuild.invoke(builder);
-        markers.put(spawnId, spawnMarker);
+        markers.put("poi_" + town.getName(), mPOIMarkerBuild.invoke(builder));
     }
 
+    // === УТИЛИТЫ ===
     private static void toggleEdge(Set<String> edges, double x1, double z1, double x2, double z2) {
         String forward = x1 + "," + z1 + ">" + x2 + "," + z2;
         String backward = x2 + "," + z2 + ">" + x1 + "," + z1;
@@ -419,32 +392,28 @@ public class BlueMapIntegration {
             String[] p1 = parts[0].split(",");
             String[] p2 = parts[1].split(",");
             pathMap.put(
-                    new Point(Double.parseDouble(p1[0]), Double.parseDouble(p1[1])),
-                    new Point(Double.parseDouble(p2[0]), Double.parseDouble(p2[1])));
+                new Point(Double.parseDouble(p1[0]), Double.parseDouble(p1[1])),
+                new Point(Double.parseDouble(p2[0]), Double.parseDouble(p2[1])));
         }
         while (!pathMap.isEmpty()) {
             List<Point> poly = new ArrayList<>();
             Point start = pathMap.keySet().iterator().next();
             Point current = start;
-            while (current != null) {
+            int safety = 0;
+            while (current != null && safety++ < 10000) {
                 poly.add(current);
                 Point next = pathMap.remove(current);
                 if (next == null || next.equals(start)) break;
                 current = next;
             }
-            polygons.add(poly);
+            if (poly.size() >= 3) polygons.add(poly);
         }
         return polygons;
     }
 
     private static class Point {
         double x, z;
-
-        Point(double x, double z) {
-            this.x = x;
-            this.z = z;
-        }
-
+        Point(double x, double z) { this.x = x; this.z = z; }
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -452,116 +421,82 @@ public class BlueMapIntegration {
             Point p = (Point) o;
             return Double.compare(p.x, x) == 0 && Double.compare(p.z, z) == 0;
         }
-
         @Override
-        public int hashCode() {
-            return Objects.hash(x, z);
-        }
+        public int hashCode() { return Objects.hash(x, z); }
     }
 
+    // === ПОПАПЫ ===
     private static String buildNationPopup(Nation nation, int r, int g, int b) {
         StringBuilder sb = new StringBuilder();
-
-        String containerStyle = "font-family: 'Segoe UI', sans-serif; background: rgba(10, 10, 15, 0.95); " +
-                "padding: 12px; border-radius: 8px; color: #fff; min-width: 280px; " +
-                "margin: -10px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.8); " +
-                "position: relative; pointer-events: auto;";
-
-        String closeBtnStyle = "position: absolute; top: 2px; right: 8px; color: #aaa; font-size: 20px; " +
-                "cursor: pointer; font-weight: bold; line-height: 1; padding: 2px 4px; " +
-                "transition: color 0.15s; user-select: none;";
-
-        String titleColor = String.format("rgb(%d, %d, %d)", r, g, b);
-        String labelStyle = "color: #999; font-weight: 500; white-space: nowrap;";
-        String valStyle = "font-weight: bold; text-align: left;";
-        String gridStyle = "display: grid; grid-template-columns: min-content 1fr; column-gap: 10px; row-gap: 4px; font-size: 14px;";
+        String containerStyle = "font-family:'Segoe UI',sans-serif;background:rgba(10,10,15,0.95);" +
+                "padding:12px;border-radius:8px;color:#fff;min-width:280px;" +
+                "margin:-10px;border:1px solid rgba(255,255,255,0.15);box-shadow:0 4px 15px rgba(0,0,0,0.8);" +
+                "position:relative;pointer-events:auto;";
+        String closeBtnStyle = "position:absolute;top:2px;right:8px;color:#aaa;font-size:20px;" +
+                "cursor:pointer;font-weight:bold;line-height:1;padding:2px 4px;user-select:none;";
+        String titleColor = String.format("rgb(%d,%d,%d)", r, g, b);
+        String labelStyle = "color:#999;font-weight:500;white-space:nowrap;";
+        String valStyle = "font-weight:bold;text-align:left;";
+        String gridStyle = "display:grid;grid-template-columns:min-content 1fr;column-gap:10px;row-gap:4px;font-size:14px;";
 
         sb.append("<div style=\"").append(containerStyle).append("\">");
-
         sb.append("<div style=\"").append(closeBtnStyle)
           .append("\" onmouseover=\"this.style.color='#fff'\" onmouseout=\"this.style.color='#aaa'\"")
-          .append(" onclick=\"var lp=this.closest('.bm-marker-labelpopup'); if(lp){lp.style.display='none';} var mp=this.closest('.bm-marker-popup'); if(mp){mp.style.display='none';} event.stopPropagation();\">×</div>");
-
-        sb.append("<div style=\"font-size: 18px; font-weight: 900; color: ").append(titleColor)
-          .append("; text-align: center; margin-bottom: 8px;\">🏛 ").append(nation.getName()).append("</div>");
-
-        sb.append("<hr style=\"border: 0; border-top: 2px solid rgba(255,255,255,0.3); margin: 8px 0;\">");
-
+          .append(" onclick=\"var lp=this.closest('.bm-marker-labelpopup');if(lp){lp.style.display='none';}event.stopPropagation();\">×</div>");
+        sb.append("<div style=\"font-size:18px;font-weight:900;color:").append(titleColor)
+          .append(";text-align:center;margin-bottom:8px;\">🏛 ").append(nation.getName()).append("</div>");
+        sb.append("<hr style=\"border:0;border-top:2px solid rgba(255,255,255,0.3);margin:8px 0;\">");
         sb.append("<div style=\"").append(gridStyle).append("\">");
-
         sb.append("<div style=\"").append(labelStyle).append("\">Городов:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #FFD700;\">").append(nation.getTowns().size()).append("</div>");
-
+        sb.append("<div style=\"").append(valStyle).append("color:#FFD700;\">").append(nation.getTowns().size()).append("</div>");
         sb.append("<div style=\"").append(labelStyle).append("\">Жителей:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #DDDDDD;\">").append(nation.getTotalMembers()).append("</div>");
-
+        sb.append("<div style=\"").append(valStyle).append("color:#DDD;\">").append(nation.getTotalMembers()).append("</div>");
         sb.append("<div style=\"").append(labelStyle).append("\">Территория:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #DDDDDD;\">").append(nation.getTotalChunks()).append(" чанков</div>");
-
+        sb.append("<div style=\"").append(valStyle).append("color:#DDD;\">").append(nation.getTotalChunks()).append(" чанков</div>");
         sb.append("<div style=\"").append(labelStyle).append("\">Рейтинг:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #FFD700;\">⭐ ").append(nation.getRating()).append("</div>");
-
+        sb.append("<div style=\"").append(valStyle).append("color:#FFD700;\">⭐ ").append(nation.getRating()).append("</div>");
         sb.append("</div>");
-
-        sb.append("<hr style=\"border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;\">");
-        sb.append("<div style=\"font-size: 12px; color: #aaa;\">Города:</div>");
-        sb.append("<div style=\"font-size: 13px; color: #ddd; margin-top: 4px;\">");
-
+        sb.append("<hr style=\"border:0;border-top:1px solid rgba(255,255,255,0.2);margin:8px 0;\">");
+        sb.append("<div style=\"font-size:12px;color:#aaa;\">Города:</div>");
+        sb.append("<div style=\"font-size:13px;color:#ddd;margin-top:4px;\">");
         for (String townName : nation.getTowns()) {
             Town t = NationsData.getTown(townName);
             if (t == null) continue;
-            boolean isCapital = nation.getLeader().equals(t.getMayor());
-            String icon = isCapital ? "👑" : "🏠";
-            sb.append(icon).append(" ").append(townName);
-            sb.append(" <span style=\"color: #888;\">(").append(t.getClaimedChunks().size()).append(")</span><br>");
+            boolean isCap = nation.getLeader().equals(t.getMayor());
+            sb.append(isCap ? "👑" : "🏠").append(" ").append(townName);
+            sb.append(" <span style=\"color:#888;\">(").append(t.getClaimedChunks().size()).append(")</span><br>");
         }
-
         sb.append("</div></div>");
         return sb.toString();
     }
 
     private static String buildPopup(Town town, String nationName, int r, int g, int b) {
         StringBuilder sb = new StringBuilder();
-
-        String containerStyle = "font-family: 'Segoe UI', sans-serif; background: rgba(10, 10, 15, 0.95); " +
-                "padding: 12px; border-radius: 8px; color: #fff; min-width: 260px; " +
-                "margin: -10px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.8); " +
-                "position: relative; pointer-events: auto;";
-
-        String closeBtnStyle = "position: absolute; top: 2px; right: 8px; color: #aaa; font-size: 20px; " +
-                "cursor: pointer; font-weight: bold; line-height: 1; padding: 2px 4px; " +
-                "transition: color 0.15s; user-select: none;";
-
-        String gridStyle = "display: grid; grid-template-columns: min-content 1fr; align-items: baseline; " +
-                "column-gap: 10px; row-gap: 4px; font-size: 14px;";
-
-        String labelStyle = "color: #999; font-weight: 500; white-space: nowrap;";
-        String valStyle = "font-weight: bold; text-align: left;";
-
-        String titleColor = String.format("rgb(%d, %d, %d)", r, g, b);
+        String containerStyle = "font-family:'Segoe UI',sans-serif;background:rgba(10,10,15,0.95);" +
+                "padding:12px;border-radius:8px;color:#fff;min-width:260px;" +
+                "margin:-10px;border:1px solid rgba(255,255,255,0.15);box-shadow:0 4px 15px rgba(0,0,0,0.8);" +
+                "position:relative;pointer-events:auto;";
+        String closeBtnStyle = "position:absolute;top:2px;right:8px;color:#aaa;font-size:20px;" +
+                "cursor:pointer;font-weight:bold;line-height:1;padding:2px 4px;user-select:none;";
+        String gridStyle = "display:grid;grid-template-columns:min-content 1fr;align-items:baseline;" +
+                "column-gap:10px;row-gap:4px;font-size:14px;";
+        String labelStyle = "color:#999;font-weight:500;white-space:nowrap;";
+        String valStyle = "font-weight:bold;text-align:left;";
+        String titleColor = String.format("rgb(%d,%d,%d)", r, g, b);
         if (town.isAtWar()) titleColor = "#FF4444";
 
         sb.append("<div class=\"nations-popup\" style=\"").append(containerStyle).append("\">");
-
         sb.append("<div class=\"nations-close-btn\" style=\"").append(closeBtnStyle)
           .append("\" onmouseover=\"this.style.color='#fff'\" onmouseout=\"this.style.color='#aaa'\"")
-          .append(" onclick=\"var lp=this.closest('.bm-marker-labelpopup'); if(lp){lp.style.display='none';} var mp=this.closest('.bm-marker-popup'); if(mp){mp.style.display='none';} event.stopPropagation();\">×</div>");
-
+          .append(" onclick=\"var lp=this.closest('.bm-marker-labelpopup');if(lp){lp.style.display='none';}var mp=this.closest('.bm-marker-popup');if(mp){mp.style.display='none';}event.stopPropagation();\">×</div>");
         sb.append("<div style=\"").append(gridStyle).append("\">");
-
         String natColor = town.getNationName() != null ? titleColor : "#999";
         sb.append("<div style=\"").append(labelStyle).append("\">Нация:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color:").append(natColor).append(";\">")
-                .append(nationName).append("</div>");
-
+        sb.append("<div style=\"").append(valStyle).append("color:").append(natColor).append(";\">").append(nationName).append("</div>");
         sb.append("<div style=\"").append(labelStyle).append("\">Город:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #DDDDDD;\">")
-                .append(town.getName()).append("</div>");
-
+        sb.append("<div style=\"").append(valStyle).append("color:#DDD;\">").append(town.getName()).append("</div>");
         sb.append("</div>");
-
-        sb.append("<hr style=\"border: 0; border-top: 2px solid rgba(255,255,255,0.3); margin: 8px 0;\">");
-
+        sb.append("<hr style=\"border:0;border-top:2px solid rgba(255,255,255,0.3);margin:8px 0;\">");
         sb.append("<div style=\"").append(gridStyle).append("\">");
 
         String mayorName = "Неизвестно";
@@ -570,38 +505,27 @@ public class BlueMapIntegration {
             if (p != null) mayorName = p.getName().getString();
         }
         sb.append("<div style=\"").append(labelStyle).append("\">МЭР:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #FFD700; font-size: 13px;\">")
-                .append(mayorName).append("</div>");
-
-        sb.append("<div style=\"").append(labelStyle).append(" align-self: start;\">Жители:</div>");
-        sb.append("<div style=\"").append(valStyle).append("color: #DDDDDD; font-size: 13px; line-height: 1.3;\">");
+        sb.append("<div style=\"").append(valStyle).append("color:#FFD700;font-size:13px;\">").append(mayorName).append("</div>");
+        sb.append("<div style=\"").append(labelStyle).append("align-self:start;\">Жители:</div>");
+        sb.append("<div style=\"").append(valStyle).append("color:#DDD;font-size:13px;line-height:1.3;\">");
 
         List<String> names = new ArrayList<>();
         int limit = 0;
         for (UUID id : town.getMembers()) {
-            if (limit >= 15) {
-                names.add("...");
-                break;
-            }
+            if (limit >= 15) { names.add("..."); break; }
             if (NationsData.getServer() != null) {
                 var p = NationsData.getServer().getPlayerList().getPlayer(id);
                 names.add(p != null ? p.getName().getString() : "оффлайн");
-            } else {
-                names.add("?");
-            }
+            } else { names.add("?"); }
             limit++;
         }
-        sb.append(String.join(", ", names));
-        sb.append("</div>");
-
-        sb.append("</div>");
+        sb.append(String.join(", ", names)).append("</div></div>");
 
         if (town.isAtWar()) {
-            sb.append("<div style=\"margin-top:10px; color:#ff5555; font-weight:900; text-align:center; text-transform: uppercase;\">⚠ ИДЕТ ВОЙНА</div>");
+            sb.append("<div style=\"margin-top:10px;color:#ff5555;font-weight:900;text-align:center;text-transform:uppercase;\">⚠ ИДЕТ ВОЙНА</div>");
         } else if (town.isCaptured()) {
-            sb.append("<div style=\"margin-top:10px; color:#ffaa00; font-weight:900; text-align:center; text-transform: uppercase;\">🏴 ЗАХВАЧЕН</div>");
+            sb.append("<div style=\"margin-top:10px;color:#ffaa00;font-weight:900;text-align:center;text-transform:uppercase;\">🏴 ЗАХВАЧЕН</div>");
         }
-
         sb.append("</div>");
         return sb.toString();
     }
