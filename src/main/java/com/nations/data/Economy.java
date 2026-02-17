@@ -61,6 +61,13 @@ public class Economy {
         return true;
     }
 
+    public static void createTownBalance(String townName) {
+        String key = townName.toLowerCase();
+        if (!townTreasury.containsKey(key)) {
+            townTreasury.put(key, 0.0);
+        }
+    }
+
     // Nation treasury
     private static final Map<String, Double> nationTreasury = new ConcurrentHashMap<>();
 
@@ -78,6 +85,13 @@ public class Economy {
         if (bal < amount) return false;
         nationTreasury.put(nationName.toLowerCase(), bal - amount);
         return true;
+    }
+
+    public static void createNationBalance(String nationName) {
+        String key = nationName.toLowerCase();
+        if (!nationTreasury.containsKey(key)) {
+            nationTreasury.put(key, 0.0);
+        }
     }
 
     // Tax collection
