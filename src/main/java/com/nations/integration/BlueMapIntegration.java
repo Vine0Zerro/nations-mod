@@ -148,30 +148,27 @@ public class BlueMapIntegration {
                 Map<String, Object> markerSets = (Map<String, Object>) mGetMarkerSets.invoke(map);
                 Object markerSet = markerSets.get(MARKER_SET_ID);
                 if (markerSet == null) {
-                    Object b = mMarkerSetBuilder.invoke(null);
-                    mMarkerSetLabel.invoke(b, "Нации и Города");
-                    markerSet = mMarkerSetBuild.invoke(b);
+                    Object msBuilder = mMarkerSetBuilder.invoke(null);
+                    mMarkerSetLabel.invoke(msBuilder, "Нации и Города");
+                    markerSet = mMarkerSetBuild.invoke(msBuilder);
                     markerSets.put(MARKER_SET_ID, markerSet);
                 }
 
                 Map<String, Object> markers = (Map<String, Object>) mMarkerSetGetMarkers.invoke(markerSet);
                 markers.clear();
 
-                // 1. Заливка + внешняя граница наций (толщина 4)
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawNationFill(nation, markers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Nation error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
-                // 2. Внутренние границы между городами одной нации (толщина 2)
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawInnerBorders(nation, markers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Inner border error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
-                // 3. Города без нации
                 for (Town town : NationsData.getAllTowns()) {
                     if (town.getNationName() == null) {
                         try { drawStandaloneTown(town, markers); } catch (Exception e) {
@@ -180,7 +177,6 @@ public class BlueMapIntegration {
                     }
                 }
 
-                // 4. Иконки городов (HtmlMarker с base64 img)
                 for (Town town : NationsData.getAllTowns()) {
                     try { drawTownIcon(town, markers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Icon error " + town.getName() + ": " + e.getMessage());
@@ -206,10 +202,10 @@ public class BlueMapIntegration {
         List<List<Point>> polygons = tracePolygons(outerEdges);
 
         int hex = nation.getColor().getHex();
-        int r = (hex >> 16) & 0xFF, g = (hex >> 8) & 0xFF, b = hex & 0xFF;
-        Object fill = cColor.newInstance(r, g, b, 0.25f);
-        Object line = cColor.newInstance(r, g, b, 1.0f);
-        String popup = buildNationPopup(nation, r, g, b);
+        int cr = (hex >> 16) & 0xFF, cg = (hex >> 8) & 0xFF, cb = hex & 0xFF;
+        Object fill = cColor.newInstance(cr, cg, cb, 0.25f);
+        Object line = cColor.newInstance(cr, cg, cb, 1.0f);
+        String popup = buildNationPopup(nation, cr, cg, cb);
 
         int i = 0;
         for (List<Point> poly : polygons) {
@@ -220,7 +216,6 @@ public class BlueMapIntegration {
     }
 
     private static void drawInnerBorders(Nation nation, Map<String, Object> markers) throws Exception {
-        // Маппинг: чанк -> имя города
         Map<ChunkPos, String> chunkToTown = new HashMap<>();
         for (String tn : nation.getTowns()) {
             Town t = NationsData.getTown(tn);
@@ -229,12 +224,11 @@ public class BlueMapIntegration {
         if (chunkToTown.size() < 2) return;
 
         int hex = nation.getColor().getHex();
-        int r = (hex >> 16) & 0xFF, g = (hex >> 8) & 0xFF, b = hex & 0xFF;
-        int dr = Math.min(255, r + 40), dg = Math.min(255, g + 40), db = Math.min(255, b + 40);
+        int cr = (hex >> 16) & 0xFF, cg = (hex >> 8) & 0xFF, cb = hex & 0xFF;
+        int dr = Math.min(255, cr + 40), dg = Math.min(255, cg + 40), db = Math.min(255, cb + 40);
         Object lineCol = cColor.newInstance(dr, dg, db, 0.6f);
         Object noFill = cColor.newInstance(0, 0, 0, 0.0f);
 
-        // Находим рёбра между разными городами одной нации
         Set<String> innerEdges = new HashSet<>();
         for (Map.Entry<ChunkPos, String> entry : chunkToTown.entrySet()) {
             ChunkPos cp = entry.getKey();
@@ -251,9 +245,10 @@ public class BlueMapIntegration {
         int j = 0;
         for (String edge : innerEdges) {
             String[] pts = edge.split(">");
-            String[] a = pts[0].split(","), b = pts[1].split(",");
-            double ax = Double.parseDouble(a[0]), az = Double.parseDouble(a[1]);
-            double bx = Double.parseDouble(b[0]), bz = Double.parseDouble(b[1]);
+            String[] partA = pts[0].split(",");
+            String[] partB = pts[1].split(",");
+            double ax = Double.parseDouble(partA[0]), az = Double.parseDouble(partA[1]);
+            double bx = Double.parseDouble(partB[0]), bz = Double.parseDouble(partB[1]);
 
             List<Point> linePoly = new ArrayList<>();
             double w = 0.3;
@@ -287,12 +282,12 @@ public class BlueMapIntegration {
         if (town.getClaimedChunks().isEmpty()) return;
         Set<String> edges = calcEdges(town.getClaimedChunks());
         List<List<Point>> polygons = tracePolygons(edges);
-        int r = 150, g = 150, b = 150;
-        Object fill = cColor.newInstance(r, g, b, 0.30f);
-        Object line = cColor.newInstance(r, g, b, 1.0f);
+        int cr = 150, cg = 150, cb = 150;
+        Object fill = cColor.newInstance(cr, cg, cb, 0.30f);
+        Object line = cColor.newInstance(cr, cg, cb, 1.0f);
         if (town.isAtWar()) { fill = cColor.newInstance(255, 50, 50, 0.4f); line = cColor.newInstance(255, 50, 50, 1.0f); }
         else if (town.isCaptured()) { fill = cColor.newInstance(255, 140, 0, 0.4f); line = cColor.newInstance(255, 140, 0, 1.0f); }
-        String popup = buildPopup(town, "Без нации", r, g, b);
+        String popup = buildPopup(town, "Без нации", cr, cg, cb);
         int i = 0;
         for (List<Point> poly : polygons) {
             if (poly.size() < 3) continue;
@@ -325,15 +320,9 @@ public class BlueMapIntegration {
         int size = isCapital ? 32 : 16;
         int half = size / 2;
 
-        // Используем HtmlMarker с <img> тегом
         String html = "<div style=\"transform:translate(-" + half + "px,-" + half + "px);\">" +
             "<img src=\"" + icon + "\" width=\"" + size + "\" height=\"" + size + "\" style=\"display:block;\" />" +
             "</div>";
-
-        String popup = buildPopup(town, nationName,
-            Integer.parseInt(colorHex.substring(1, 3), 16),
-            Integer.parseInt(colorHex.substring(3, 5), 16),
-            Integer.parseInt(colorHex.substring(5, 7), 16));
 
         Object builder = mHtmlMarkerBuilder.invoke(null);
         mHtmlMarkerLabel.invoke(builder, town.getName());
@@ -348,8 +337,6 @@ public class BlueMapIntegration {
         markers.put("icon_" + town.getName(), mHtmlMarkerBuild.invoke(builder));
     }
 
-    // === УТИЛИТЫ ===
-
     private static Set<String> calcEdges(Set<ChunkPos> chunks) {
         Set<String> edges = new HashSet<>();
         for (ChunkPos cp : chunks) {
@@ -363,17 +350,18 @@ public class BlueMapIntegration {
     }
 
     private static void toggleEdge(Set<String> e, double x1, double z1, double x2, double z2) {
-        String f = x1+","+z1+">"+x2+","+z2, b = x2+","+z2+">"+x1+","+z1;
-        if (e.contains(b)) e.remove(b); else e.add(f);
+        String f = x1+","+z1+">"+x2+","+z2, rev = x2+","+z2+">"+x1+","+z1;
+        if (e.contains(rev)) e.remove(rev); else e.add(f);
     }
 
     private static List<List<Point>> tracePolygons(Set<String> edges) {
         List<List<Point>> polys = new ArrayList<>();
         Map<Point, Point> map = new HashMap<>();
         for (String e : edges) {
-            String[] p = e.split(">"); String[] a = p[0].split(","), b = p[1].split(",");
-            map.put(new Point(Double.parseDouble(a[0]), Double.parseDouble(a[1])),
-                    new Point(Double.parseDouble(b[0]), Double.parseDouble(b[1])));
+            String[] p = e.split(">");
+            String[] pa = p[0].split(","), pb = p[1].split(",");
+            map.put(new Point(Double.parseDouble(pa[0]), Double.parseDouble(pa[1])),
+                    new Point(Double.parseDouble(pb[0]), Double.parseDouble(pb[1])));
         }
         while (!map.isEmpty()) {
             List<Point> poly = new ArrayList<>();
@@ -397,14 +385,14 @@ public class BlueMapIntegration {
         return cShape.newInstance(arr);
     }
 
-    private static Object createShapeMarker(String label, Object shape, Object fill, Object line, int w, String detail) throws Exception {
+    private static Object createShapeMarker(String label, Object shape, Object fill, Object line, int width, String detail) throws Exception {
         Object bd = mShapeMarkerBuilder.invoke(null);
         mShapeMarkerLabel.invoke(bd, label);
         mShapeMarkerShape.invoke(bd, shape, 64f);
         mShapeMarkerDepthTest.invoke(bd, false);
         mShapeMarkerFillColor.invoke(bd, fill);
         mShapeMarkerLineColor.invoke(bd, line);
-        mShapeMarkerLineWidth.invoke(bd, w);
+        mShapeMarkerLineWidth.invoke(bd, width);
         mShapeMarkerDetail.invoke(bd, detail);
         return mShapeMarkerBuild.invoke(bd);
     }
