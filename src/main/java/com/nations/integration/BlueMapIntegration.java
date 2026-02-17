@@ -8,6 +8,7 @@ import net.minecraftforge.fml.ModList;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.function.Consumer;
 
 public class BlueMapIntegration {
 
@@ -15,9 +16,7 @@ public class BlueMapIntegration {
     private static Object blueMapAPI = null;
     private static final String MARKER_SET_ID = "nations_towns";
 
-    // Иконка короны (для столицы)
     private static final String ICON_CROWN_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gIQFR0z0/48VwAAAqVJREFUWMPtl89rE0EUx7+zs7vbFk0tVv+A4kERrJdePCh48CDiQfBisp68e/GsB717F/wD/AfEg3gQBC2ItyJ6Ew/WgxQramO32d3ZmRkP2zbZpGk3iXjwcWbe2/fNfN+ZefMGRF+W9X8D0C6V90d9LyPzQ4g0L0GZpwD4E+D6wN/16fN7I0Qh0FqZAtA+d+6o+30nhDYEASLhQGtlhghk/2ATADxpJigzTSa8IhqNQiMRCGBCeaSMjUZgCBCLte8SpV7o2M/JpA0AsrD+EwB0GGEALqb3A8gRsblo9yfZF0qy10w0fK21+9SLdWtO9cp4/b5QHTryHCdiawFk36oDAGSNMAD68JcA5OfDGV6p3b54r7FohfIZ8ypdz7a0nnpl8pr/1sajg9+b+A+vrfgA385dPfBYtPGlW15x6KwzOuVoBULs3BtJfbfZCO3sdwuvR4Ux/NfqCHdUedO+mhUvnymNVX+Q7Lnx+8ooM8e/wotnX33qiYbmLw8W5gdmVGnmsegXAPkAwCiK7bNng4o8n7LsL4o3f2h5yqdn8g2ZENbRdhE/HsI40CkTDLtFrrpzA5dWVIb6Mv7QgDPXP+IV6ZRJbIwD7SJ+vFZYRx6d/pv0lUL86GWTsvrCZlHzfHNNdM+OxtSiA/eem/Old8i53qt/rrvztNVVs2bVBTtlGGLsbTsRDQ/8K6xU7pBXdkf2hPMkpjFkIbTrkSOZrJCGfm3g9q5Iwj7dFxoibxn5M1K5GR7nlwfjdUHbbtlWba4orZdr/zIx+qeyaf5uwCwuAiw6EJcm2S49PegtXNyxNdG979HWkzccJ+Qnc3g1pcydTdX6bZ36mZ/eUPb50ZnY9l3tL/RubYj09jRGd/Z2vPCv29Oxn13X9vYO9UzPpkq9X1PK6GSB645jP74rc3L3zuSGfnf2QrS5ON0QCj2YgSklsKlQrajok/8B+le5c6l0OCgAAAAASUVORK5CYII=";
-    // Иконка домика (для обычных городов)
     private static final String ICON_TOWN_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAA3NCSVQICAjb4U/gAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gIQFR4s+v8+3QAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAABLUExURQAAAM/P0dDQ0svLzczMzvfz9vv7+/z7++Tm5tzd2/r5+fj49/n19/79/fX19P/+/v38/P39/f///+rq6cfHxt7e3qenpt/f3qiop9XU1KalpcC+vqKhocG/v8/PzquqqqGfn6OiocG7v8bFxMLAwNTU07q6uaWjpKqpqaaipa6qrLOusamlp6yoqv///9/h4dja2f////j49u3t7NLU1MbHxevr6vr6+erq6e3t7N3d3MbGxt7e3uDf37e3tqempt/f3t/f37a2tainp9TU09ra2bKxsaWlpL68vMvKydTT09XV1Lu7u7Kysainp5+enry6usHAv7Cwr5yam+np6NjY2NLS0ubm5eXl5d3d3MnJyN/f39vb27+/v7q6ud7e3tva2r+/vv///+VauVgAAABUdFJOUwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKU1MITbP29rNNOe3tOUD29kBA9vZAOe3tOAhNs/f2s0wIClxcCsucjc0AAAABYktHRBJ7vGwAAAAAC4lEQVQY02NgIBIwMjGzIHFZ2dg5OLm4eWB8dl4+PX0DPT5+AaiAoKGRsYmpmbmhEFRA2MIyJDQs3MpaBCogamMbERIZZWcvBhUQd3CMjomNc3KWgApIurjGJyTGublLQQWkPTy9vH18/fxloAKy0nIBgUHB8gqKMIcopaioqqlraCK5VUtbR5dYbwIAoBMTO+1B/sUAAAAASUVORK5CYII=";
 
     private static Class<?> clsBlueMapAPI, clsBlueMapMap, clsMarkerSet, clsShapeMarker, clsPOIMarker, clsShape, clsVector2d, clsColor;
@@ -26,6 +25,7 @@ public class BlueMapIntegration {
     private static Method mShapeMarkerBuilder, mShapeMarkerLabel, mShapeMarkerShape, mShapeMarkerDepthTest, mShapeMarkerFillColor, mShapeMarkerLineColor, mShapeMarkerLineWidth, mShapeMarkerDetail, mShapeMarkerBuild;
     private static Method mPOIMarkerBuilder, mPOIMarkerLabel, mPOIMarkerPosition, mPOIMarkerDetail, mPOIMarkerIcon, mPOIMarkerBuild;
     private static Constructor<?> cVector2d, cShape, cColor;
+    private static Method mOnEnable;
 
     public static void init() {
         if (!ModList.get().isLoaded("bluemap")) {
@@ -34,9 +34,8 @@ public class BlueMapIntegration {
         }
         try {
             loadClasses();
-            checkApi();
-            enabled = true;
-            NationsMod.LOGGER.info("BlueMap integration initialized successfully!");
+            registerOnEnable();
+            NationsMod.LOGGER.info("BlueMap integration registered — waiting for BlueMap API...");
         } catch (Exception e) {
             NationsMod.LOGGER.error("Failed to initialize BlueMap integration: " + e.getMessage());
             e.printStackTrace();
@@ -45,8 +44,7 @@ public class BlueMapIntegration {
 
     private static void loadClasses() throws ClassNotFoundException, NoSuchMethodException {
         ClassLoader cl = BlueMapIntegration.class.getClassLoader();
-        
-        // Load Classes
+
         clsBlueMapAPI = Class.forName("de.bluecolored.bluemap.api.BlueMapAPI", true, cl);
         clsBlueMapMap = Class.forName("de.bluecolored.bluemap.api.BlueMapMap", true, cl);
         clsMarkerSet = Class.forName("de.bluecolored.bluemap.api.markers.MarkerSet", true, cl);
@@ -56,20 +54,17 @@ public class BlueMapIntegration {
         clsVector2d = Class.forName("com.flowpowered.math.vector.Vector2d", true, cl);
         clsColor = Class.forName("de.bluecolored.bluemap.api.math.Color", true, cl);
 
-        // API Methods
         mGetInstance = clsBlueMapAPI.getMethod("getInstance");
         mGetMaps = clsBlueMapAPI.getMethod("getMaps");
         mGetId = clsBlueMapMap.getMethod("getId");
         mGetMarkerSets = clsBlueMapMap.getMethod("getMarkerSets");
 
-        // MarkerSet Methods
         mMarkerSetBuilder = clsMarkerSet.getMethod("builder");
         Class<?> clsMarkerSetBuilder = mMarkerSetBuilder.getReturnType();
         mMarkerSetLabel = clsMarkerSetBuilder.getMethod("label", String.class);
         mMarkerSetBuild = clsMarkerSetBuilder.getMethod("build");
         mMarkerSetGetMarkers = clsMarkerSet.getMethod("getMarkers");
 
-        // ShapeMarker Methods
         mShapeMarkerBuilder = clsShapeMarker.getMethod("builder");
         Class<?> clsShapeMarkerBuilder = mShapeMarkerBuilder.getReturnType();
         mShapeMarkerLabel = clsShapeMarkerBuilder.getMethod("label", String.class);
@@ -81,7 +76,6 @@ public class BlueMapIntegration {
         mShapeMarkerDetail = clsShapeMarkerBuilder.getMethod("detail", String.class);
         mShapeMarkerBuild = clsShapeMarkerBuilder.getMethod("build");
 
-        // POIMarker Methods
         mPOIMarkerBuilder = clsPOIMarker.getMethod("builder");
         Class<?> clsPOIMarkerBuilder = mPOIMarkerBuilder.getReturnType();
         mPOIMarkerLabel = clsPOIMarkerBuilder.getMethod("label", String.class);
@@ -90,27 +84,74 @@ public class BlueMapIntegration {
         mPOIMarkerIcon = clsPOIMarkerBuilder.getMethod("icon", String.class, int.class, int.class);
         mPOIMarkerBuild = clsPOIMarkerBuilder.getMethod("build");
 
-        // Constructors
         cVector2d = clsVector2d.getConstructor(double.class, double.class);
         cShape = clsShape.getConstructor(clsVector2d.arrayType());
         cColor = clsColor.getConstructor(int.class, int.class, int.class, float.class);
+
+        // Метод onEnable для регистрации callback
+        mOnEnable = clsBlueMapAPI.getMethod("onEnable", Consumer.class);
     }
 
-    private static void checkApi() {
+    @SuppressWarnings("unchecked")
+    private static void registerOnEnable() throws Exception {
+        // BlueMapAPI.onEnable(api -> { ... })
+        // Этот callback вызовется когда BlueMap полностью загрузится
+        Consumer<Object> callback = api -> {
+            blueMapAPI = api;
+            enabled = true;
+            NationsMod.LOGGER.info("BlueMap API is now available! Rendering all markers...");
+            try {
+                updateAllMarkers();
+            } catch (Exception e) {
+                NationsMod.LOGGER.error("Error during initial BlueMap marker render: " + e.getMessage());
+                e.printStackTrace();
+            }
+        };
+
+        mOnEnable.invoke(null, callback);
+
+        // Также пробуем получить API сразу (если BlueMap уже загружен)
         try {
             Optional<?> opt = (Optional<?>) mGetInstance.invoke(null);
-            if (opt.isPresent()) blueMapAPI = opt.get();
+            if (opt.isPresent()) {
+                blueMapAPI = opt.get();
+                enabled = true;
+                NationsMod.LOGGER.info("BlueMap API already available!");
+            }
         } catch (Exception ignored) {}
     }
 
+    public static boolean isEnabled() {
+        return enabled && blueMapAPI != null;
+    }
+
     public static void updateAllMarkers() {
-        if (!enabled || blueMapAPI == null) return;
+        if (!enabled || blueMapAPI == null) {
+            // Попробовать получить API ещё раз
+            try {
+                Optional<?> opt = (Optional<?>) mGetInstance.invoke(null);
+                if (opt.isPresent()) {
+                    blueMapAPI = opt.get();
+                    enabled = true;
+                } else {
+                    return;
+                }
+            } catch (Exception e) {
+                return;
+            }
+        }
 
         try {
             Collection<?> maps = (Collection<?>) mGetMaps.invoke(blueMapAPI);
+
+            if (maps.isEmpty()) {
+                NationsMod.LOGGER.warn("BlueMap has no maps loaded yet.");
+                return;
+            }
+
             for (Object map : maps) {
                 String mapId = (String) mGetId.invoke(map);
-                // Рисуем только в обычном мире (overworld)
+                // Рисуем только в overworld
                 if (!mapId.toLowerCase().contains("overworld") && !mapId.equals("world")) continue;
 
                 Map<String, Object> markerSets = (Map<String, Object>) mGetMarkerSets.invoke(map);
@@ -124,29 +165,48 @@ public class BlueMapIntegration {
                 }
 
                 Map<String, Object> markers = (Map<String, Object>) mMarkerSetGetMarkers.invoke(markerSet);
-                markers.clear(); // Очищаем старые маркеры перед перерисовкой
+                markers.clear();
 
-                // 1. Рисуем внешние границы НАЦИЙ
+                // 1. Внешние границы НАЦИЙ
                 for (Nation nation : NationsData.getAllNations()) {
-                    drawNationBorder(nation, markers);
-                }
-
-                // 2. Рисуем внутренние границы ГОРОДОВ (тонкие)
-                for (Nation nation : NationsData.getAllNations()) {
-                    drawInnerTownBorders(nation, markers);
-                }
-
-                // 3. Рисуем города БЕЗ НАЦИИ
-                for (Town town : NationsData.getAllTowns()) {
-                    if (town.getNationName() == null) {
-                        drawStandaloneTown(town, markers);
+                    try {
+                        drawNationBorder(nation, markers);
+                    } catch (Exception e) {
+                        NationsMod.LOGGER.error("Error drawing nation border for " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
-                // 4. Рисуем ИКОНКИ (столицы и города)
-                for (Town town : NationsData.getAllTowns()) {
-                    drawTownPOI(town, markers);
+                // 2. Внутренние границы ГОРОДОВ (тонкие)
+                for (Nation nation : NationsData.getAllNations()) {
+                    try {
+                        drawInnerTownBorders(nation, markers);
+                    } catch (Exception e) {
+                        NationsMod.LOGGER.error("Error drawing inner borders for " + nation.getName() + ": " + e.getMessage());
+                    }
                 }
+
+                // 3. Города БЕЗ НАЦИИ
+                for (Town town : NationsData.getAllTowns()) {
+                    if (town.getNationName() == null) {
+                        try {
+                            drawStandaloneTown(town, markers);
+                        } catch (Exception e) {
+                            NationsMod.LOGGER.error("Error drawing standalone town " + town.getName() + ": " + e.getMessage());
+                        }
+                    }
+                }
+
+                // 4. ИКОНКИ (столицы и города)
+                for (Town town : NationsData.getAllTowns()) {
+                    try {
+                        drawTownPOI(town, markers);
+                    } catch (Exception e) {
+                        NationsMod.LOGGER.error("Error drawing POI for " + town.getName() + ": " + e.getMessage());
+                    }
+                }
+
+                NationsMod.LOGGER.debug("BlueMap markers updated for map: " + mapId +
+                    " (markers: " + markers.size() + ")");
             }
         } catch (Exception e) {
             NationsMod.LOGGER.error("Error updating BlueMap markers: " + e.getMessage());
@@ -172,15 +232,16 @@ public class BlueMapIntegration {
         int g = (hex >> 8) & 0xFF;
         int b = (hex) & 0xFF;
 
-        Object fillColor = cColor.newInstance(r, g, b, 0.3f); // Прозрачность 30%
-        Object lineColor = cColor.newInstance(r, g, b, 1.0f); // Непрозрачная граница
+        Object fillColor = cColor.newInstance(r, g, b, 0.3f);
+        Object lineColor = cColor.newInstance(r, g, b, 1.0f);
 
         String popup = buildNationPopup(nation, r, g, b);
         int i = 0;
 
         for (List<Point> poly : polygons) {
+            if (poly.size() < 3) continue;
             Object shape = createShape(poly);
-            Object marker = createShapeMarker(nation.getName(), shape, fillColor, lineColor, 3, popup); // Толщина 3
+            Object marker = createShapeMarker(nation.getName(), shape, fillColor, lineColor, 3, popup);
             markers.put("n_" + nation.getName() + "_" + (i++), marker);
         }
     }
@@ -198,11 +259,11 @@ public class BlueMapIntegration {
         for (Map.Entry<ChunkPos, String> entry : chunkOwner.entrySet()) {
             ChunkPos cp = entry.getKey();
             String myTown = entry.getValue();
-            
-            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x, cp.z - 1), cp.x, cp.z, cp.x + 1, cp.z); // Север (верх чанка)
-            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x, cp.z + 1), cp.x, cp.z + 1, cp.x + 1, cp.z + 1); // Юг
-            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x + 1, cp.z), cp.x + 1, cp.z, cp.x + 1, cp.z + 1); // Восток
-            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x - 1, cp.z), cp.x, cp.z, cp.x, cp.z + 1); // Запад
+
+            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x, cp.z - 1), cp.x, cp.z, cp.x + 1, cp.z);
+            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x, cp.z + 1), cp.x, cp.z + 1, cp.x + 1, cp.z + 1);
+            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x + 1, cp.z), cp.x + 1, cp.z, cp.x + 1, cp.z + 1);
+            checkInnerEdge(innerEdges, chunkOwner, myTown, new ChunkPos(cp.x - 1, cp.z), cp.x, cp.z, cp.x, cp.z + 1);
         }
 
         if (innerEdges.isEmpty()) return;
@@ -211,7 +272,7 @@ public class BlueMapIntegration {
         int r = (hex >> 16) & 0xFF;
         int g = (hex >> 8) & 0xFF;
         int b = (hex) & 0xFF;
-        Object lineColor = cColor.newInstance(r, g, b, 0.7f); // Полупрозрачная граница
+        Object lineColor = cColor.newInstance(r, g, b, 0.7f);
 
         int i = 0;
         for (String edge : innerEdges) {
@@ -221,15 +282,14 @@ public class BlueMapIntegration {
             double x2 = Double.parseDouble(pts[1].split(",")[0]) * 16;
             double z2 = Double.parseDouble(pts[1].split(",")[1]) * 16;
 
-            // Рисуем линию как очень тонкий полигон (0.2 блока шириной)
             List<Point> linePoly = new ArrayList<>();
             double w = 0.2;
-            if (Math.abs(x1 - x2) < 0.1) { // Вертикальная линия
+            if (Math.abs(x1 - x2) < 0.1) {
                 linePoly.add(new Point(x1 - w, z1));
                 linePoly.add(new Point(x1 + w, z1));
                 linePoly.add(new Point(x2 + w, z2));
                 linePoly.add(new Point(x2 - w, z2));
-            } else { // Горизонтальная линия
+            } else {
                 linePoly.add(new Point(x1, z1 - w));
                 linePoly.add(new Point(x2, z2 - w));
                 linePoly.add(new Point(x2, z2 + w));
@@ -245,7 +305,6 @@ public class BlueMapIntegration {
     private static void checkInnerEdge(Set<String> edges, Map<ChunkPos, String> owners, String myTown, ChunkPos neighbor, int x1, int z1, int x2, int z2) {
         String otherTown = owners.get(neighbor);
         if (otherTown != null && !otherTown.equals(myTown)) {
-            // Чтобы не дублировать ребро (A->B и B->A), сортируем координаты
             String p1 = x1 + "," + z1;
             String p2 = x2 + "," + z2;
             if (p1.compareTo(p2) > 0) { String t = p1; p1 = p2; p2 = t; }
@@ -254,6 +313,8 @@ public class BlueMapIntegration {
     }
 
     private static void drawStandaloneTown(Town town, Map<String, Object> markers) throws Exception {
+        if (town.getClaimedChunks().isEmpty()) return;
+
         Set<String> edges = calculateEdges(town.getClaimedChunks());
         List<List<Point>> polygons = tracePolygons(edges);
 
@@ -267,6 +328,7 @@ public class BlueMapIntegration {
         String popup = buildPopup(town, "Нет", r, g, b);
         int i = 0;
         for (List<Point> poly : polygons) {
+            if (poly.size() < 3) continue;
             Object marker = createShapeMarker(town.getName(), createShape(poly), fillColor, lineColor, 3, popup);
             markers.put("t_" + town.getName() + "_" + (i++), marker);
         }
@@ -294,8 +356,7 @@ public class BlueMapIntegration {
         mPOIMarkerLabel.invoke(builder, town.getName());
         mPOIMarkerPosition.invoke(builder, (double)town.getSpawnPos().getX(), (double)town.getSpawnPos().getY() + 2, (double)town.getSpawnPos().getZ());
         mPOIMarkerDetail.invoke(builder, popup);
-        
-        // Разные иконки для столицы и города
+
         if (isCapital) {
             mPOIMarkerIcon.invoke(builder, ICON_CROWN_BASE64, 16, 16);
         } else {
@@ -366,7 +427,7 @@ public class BlueMapIntegration {
     private static Object createShapeMarker(String label, Object shape, Object fill, Object line, int width, String detail) throws Exception {
         Object bd = mShapeMarkerBuilder.invoke(null);
         mShapeMarkerLabel.invoke(bd, label);
-        mShapeMarkerShape.invoke(bd, shape, 64f); // Y = 64
+        mShapeMarkerShape.invoke(bd, shape, 64f);
         mShapeMarkerDepthTest.invoke(bd, false);
         mShapeMarkerFillColor.invoke(bd, fill);
         mShapeMarkerLineColor.invoke(bd, line);
