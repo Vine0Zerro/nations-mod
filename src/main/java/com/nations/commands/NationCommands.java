@@ -55,7 +55,6 @@ public class NationCommands {
                 .then(Commands.argument("rate", DoubleArgumentType.doubleArg(0, 30))
                     .executes(ctx -> setNationTax(ctx.getSource(),
                         DoubleArgumentType.getDouble(ctx, "rate")))))
-            // ВОЙНА — ТОЛЬКО ДЛЯ ОПЕРАТОРОВ (permission level 2)
             .then(Commands.literal("war")
                 .then(Commands.literal("declare")
                     .requires(src -> src.hasPermission(2))
@@ -340,7 +339,6 @@ public class NationCommands {
         }
     }
 
-    // === ВОЙНА — ТОЛЬКО ОПЕРАТОР ===
     private static int declareWar(CommandSourceStack source, String attackerName, String defenderName) {
         try {
             Nation attacker = NationsData.getNation(attackerName);
@@ -634,7 +632,6 @@ public class NationCommands {
         else sb.append("§c⚔ ").append(String.join(", ", nation.getWarTargets()));
         sb.append("\n");
 
-        // Дипломатия
         if (!nation.getAllDiplomacy().isEmpty()) {
             sb.append("§8§l╠══ §7§lДИПЛОМАТИЯ §8§l══╣\n");
             for (var e : nation.getAllDiplomacy().entrySet()) {
