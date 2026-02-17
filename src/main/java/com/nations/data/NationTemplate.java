@@ -43,16 +43,13 @@ public class NationTemplate {
         }
     }
 
-    // === СИСТЕМА ОТРИСОВКИ ПО КАРТЕ ===
-    
     private static List<TownTemplate> parseMap(String[] map, Map<Character, String> key) {
         Map<String, List<int[]>> tempMap = new HashMap<>();
-        
-        // Находим центр карты (примерно)
+
         int height = map.length;
         int width = 0;
-        for(String s : map) if(s.length() > width) width = s.length();
-        
+        for (String s : map) if (s.length() > width) width = s.length();
+
         int centerX = width / 2;
         int centerZ = height / 2;
 
@@ -60,8 +57,7 @@ public class NationTemplate {
             String row = map[z];
             for (int x = 0; x < row.length(); x++) {
                 char c = row.charAt(x);
-                if (c == ' ' || c == '.') continue; // Пустота
-
+                if (c == ' ' || c == '.') continue;
                 String cityName = key.get(c);
                 if (cityName != null) {
                     tempMap.computeIfAbsent(cityName, k -> new ArrayList<>())
@@ -80,256 +76,333 @@ public class NationTemplate {
     private static final Map<String, NationTemplate> TEMPLATES = new HashMap<>();
 
     static {
-        // =====================================================================
-        // 1. РОССИЙСКАЯ ФЕДЕРАЦИЯ
-        // =====================================================================
+        // =================================================================
+        // 1. РОССИЯ (~450 чанков) — самая большая
+        // Форма: широкая на востоке, сужается к западу,
+        // выступ Кольского п-ова, Камчатка, Сахалин
+        // =================================================================
         Map<Character, String> rusKey = new HashMap<>();
-        rusKey.put('M', "Москва");
+        rusKey.put('U', "Мурманск");
         rusKey.put('S', "Санкт-Петербург");
-        rusKey.put('K', "Казань");
+        rusKey.put('M', "Москва");
         rusKey.put('N', "Нижний Новгород");
+        rusKey.put('D', "Краснодар");
+        rusKey.put('K', "Казань");
         rusKey.put('E', "Екатеринбург");
-        rusKey.put('O', "Новосибирск"); // O - nOvosibirsk
+        rusKey.put('O', "Новосибирск");
         rusKey.put('R', "Красноярск");
-        rusKey.put('V', "Владивосток");
-        rusKey.put('D', "Краснодар"); // D - krasnoDar
         rusKey.put('Y', "Якутск");
-        rusKey.put('U', "Мурманск");  // U - mUrmansk
+        rusKey.put('V', "Владивосток");
 
         String[] rusMap = {
-            "......UUUU....................................",
-            "...SSSSUU.....................................",
-            "..SSSSSNNNEEEEEOOOOO..........................",
-            "..SSMMMNNNEEEEEOOOOORRRRRRYYYY................",
-            ".DDDMMMKKKEEEEOOOOORRRRRRYYYYYY...............",
-            ".DDDMMMKKK...OOOOORRRRRRYYYYYYYY..............",
-            "..D............OOORRRRRRYYYYYYYY..............",
-            "..........................VVVV................",
-            "..........................VVVV................"
+            "..........UU............................................................",
+            ".........UUU............................................................",
+            "......SSSUU.............................................................",
+            "......SSSS..............................................................",
+            ".....SSMMMNN...KKKEEEEEOOOOOORRRRRRRRRYYYYYYYYY.........................",
+            ".....SSMMMMNNNNKKKEEEEEOOOOOORRRRRRRRRYYYYYYYYYYY.......................",
+            "....DDMMMMMNNNNKKKKEEEEOOOOOORRRRRRRRRRYYYYYYYYYY.......................",
+            "....DDDMMMMNNNNKKKKEEEEOOOOOORRRRRRRRRRYYYYYYYYY...........VV...........",
+            "....DDDMMMMNNNKKKKEEEEEOOOOORRRRRRRRRYYYYYYYYYYY..........VVV...........",
+            ".....DDMMMMNNNNKKKEEEEEOOOOOORRRRRRRRRYYYYYYYYYYY.........VVV...........",
+            ".....DDDMMMNNNKKKEEEEEOOOOORRRRRRRRRRRYYYYYYYYY...........VV............",
+            "......DDDMMNNNKKKEEEEOOOOOORRRRRRRRRRRYYYYYYYYY.........................",
+            "........DDDNNKKKEEEEEOOOOOORRRRRRRRRYYYYYYYYY...........................",
+            "..........DKKKKEEEEOOOOORRRRRRRRRYYYYYYY................................",
+            "...........KKKEEEEOOOORRRRRRRYYYYY......................................",
+            "............KKEEEOOOORRRRRRYYY..........................................",
+            ".............KEEOOOORRRRYYY.............................................",
+            "..............EOOOORRRRYY...............................................",
         };
         TEMPLATES.put("russia", new NationTemplate("Российская Федерация", NationColor.RED, parseMap(rusMap, rusKey)));
 
-        // =====================================================================
-        // 2. ГЕРМАНИЯ (Похожа на Германию, а не Испанию)
-        // =====================================================================
-        Map<Character, String> gerKey = new HashMap<>();
-        gerKey.put('B', "Берлин");
-        gerKey.put('H', "Гамбург");
-        gerKey.put('M', "Мюнхен");
-        gerKey.put('F', "Франкфурт");
-        gerKey.put('K', "Кёльн");
-        gerKey.put('S', "Штутгарт");
-        gerKey.put('D', "Дрезден");
-
-        String[] gerMap = {
-            "...HHHBBB...",
-            "..KHHHBBB...",
-            ".KKFFDBBB...",
-            ".KKFFDD.....",
-            "..FFSS......",
-            "..SSMMM.....",
-            "...MMMM....."
-        };
-        TEMPLATES.put("germany", new NationTemplate("Федеративная Республика Германия", NationColor.GOLD, parseMap(gerMap, gerKey)));
-
-        // =====================================================================
-        // 3. ФРАНЦИЯ (Шестиугольник)
-        // =====================================================================
-        Map<Character, String> frKey = new HashMap<>();
-        frKey.put('P', "Париж");
-        frKey.put('L', "Лион");
-        frKey.put('M', "Марсель");
-        frKey.put('T', "Тулуза");
-        frKey.put('B', "Бордо");
-        frKey.put('S', "Страсбург");
-        frKey.put('N', "Нант");
-
-        String[] frMap = {
-            "...NNNPPP.....",
-            ".NNNNPPPPP.S..",
-            ".NNBBPPPLLSS..",
-            "..BBBBPLLLL...",
-            "..BBBTTLLLL...",
-            "...TTTTMMMM...",
-            "....TTTMM....."
-        };
-        TEMPLATES.put("france", new NationTemplate("Французская Республика", NationColor.NAVY, parseMap(frMap, frKey)));
-
-        // =====================================================================
-        // 4. ВЕЛИКОБРИТАНИЯ (Вытянутая)
-        // =====================================================================
-        Map<Character, String> ukKey = new HashMap<>();
-        ukKey.put('L', "Лондон");
-        ukKey.put('B', "Бирмингем");
-        ukKey.put('M', "Манчестер");
-        ukKey.put('V', "Ливерпуль"); // liVerpool
-        ukKey.put('E', "Эдинбург");
-        ukKey.put('G', "Глазго");
-        ukKey.put('R', "Бристоль"); // bRistol
-
-        String[] ukMap = {
-            "...E.....",
-            "..GEE....",
-            "..GGE....",
-            "...M.....",
-            "..VMM....",
-            "..VBB....",
-            ".RRBBL...",
-            ".RRLLLL..",
-            "..LLLL..."
-        };
-        TEMPLATES.put("uk", new NationTemplate("Соединённое Королевство", NationColor.PURPLE, parseMap(ukMap, ukKey)));
-
-        // =====================================================================
-        // 5. США (Широкая + Флорида)
-        // =====================================================================
-        Map<Character, String> usaKey = new HashMap<>();
-        usaKey.put('W', "Вашингтон");
-        usaKey.put('N', "Нью-Йорк");
-        usaKey.put('C', "Чикаго");
-        usaKey.put('L', "Лос-Анджелес");
-        usaKey.put('D', "Денвер");
-        usaKey.put('H', "Хьюстон");
-        usaKey.put('M', "Майами");
-        usaKey.put('S', "Сиэтл");
-
-        String[] usaMap = {
-            "SS...CCCCCCNNN..",
-            "SSDDCCCCCCNNNN..",
-            "LLDDDWWWWNNNN...",
-            "LLDDDWWWW.......",
-            "LL...HHHHMMM....",
-            ".....HHHHMMM....",
-            ".........MM....."
-        };
-        TEMPLATES.put("usa", new NationTemplate("Соединённые Штаты Америки", NationColor.BLUE, parseMap(usaMap, usaKey)));
-
-        // =====================================================================
-        // 6. КИТАЙ (Огромный)
-        // =====================================================================
+        // =================================================================
+        // 2. КИТАЙ (~280 чанков) — сплошная территория
+        // Форма: широкий запад (Синьцзян/Тибет), сужается к востоку
+        // =================================================================
         Map<Character, String> cnKey = new HashMap<>();
-        cnKey.put('P', "Пекин");
-        cnKey.put('S', "Шанхай");
-        cnKey.put('G', "Гуанчжоу");
-        cnKey.put('Z', "Шэньчжэнь"); // shenZhen
-        cnKey.put('C', "Чэнду");
-        cnKey.put('W', "Ухань");
-        cnKey.put('H', "Харбин");
         cnKey.put('U', "Урумчи");
+        cnKey.put('H', "Харбин");
+        cnKey.put('P', "Пекин");
+        cnKey.put('W', "Ухань");
+        cnKey.put('S', "Шанхай");
+        cnKey.put('C', "Чэнду");
+        cnKey.put('G', "Гуанчжоу");
+        cnKey.put('Z', "Шэньчжэнь");
 
         String[] cnMap = {
-            ".........HHHH...",
-            "UUU......HHHH...",
-            "UUU...PPPPPHH...",
-            "UU....PPPPSS....",
-            ".....CCWWSSS....",
-            "....CCCWWSS.....",
-            "....CCGGZZ......",
-            ".....GGGZ......."
+            "..............HHHHHH............",
+            "..............HHHHHHH...........",
+            "UUUUUU.....PPPPPHHHH...........",
+            "UUUUUUU....PPPPPPHH............",
+            "UUUUUUUU..PPPPPPPP.............",
+            "UUUUUUUUCCPPPPSSSS..............",
+            ".UUUUUUUCCCCWWWSSS..............",
+            "..UUUUUCCCCCWWWSSSS.............",
+            "...UUUUCCCCWWWWSSS..............",
+            "....UUUCCCCWWGGGSS..............",
+            ".....UUCCCGGGGZZZ...............",
+            "......CCCCGGGZZZ................",
+            ".......CCGGGGZZ.................",
+            "........GGGGZZ..................",
         };
         TEMPLATES.put("china", new NationTemplate("Китайская Народная Республика", NationColor.DARK_RED, parseMap(cnMap, cnKey)));
 
-        // =====================================================================
-        // 7. ЯПОНИЯ (Дуга)
-        // =====================================================================
-        Map<Character, String> jpKey = new HashMap<>();
-        jpKey.put('T', "Токио");
-        jpKey.put('O', "Осака");
-        jpKey.put('N', "Нагоя");
-        jpKey.put('S', "Саппоро");
-        jpKey.put('F', "Фукуока");
-        jpKey.put('H', "Хиросима");
+        // =================================================================
+        // 3. США (~270 чанков)
+        // Форма: широкий прямоугольник, Флорида внизу справа
+        // =================================================================
+        Map<Character, String> usaKey = new HashMap<>();
+        usaKey.put('S', "Сиэтл");
+        usaKey.put('L', "Лос-Анджелес");
+        usaKey.put('D', "Денвер");
+        usaKey.put('C', "Чикаго");
+        usaKey.put('N', "Нью-Йорк");
+        usaKey.put('W', "Вашингтон");
+        usaKey.put('H', "Хьюстон");
+        usaKey.put('A', "Майами");
 
-        String[] jpMap = {
-            "......SSSS.",
-            ".....SSSS..",
-            "....TTT....",
-            "...NNTT....",
-            "..OON......",
-            ".HOO.......",
-            "FHH........",
-            "FF........."
+        String[] usaMap = {
+            "SSSS.......CCCCCCCNNNN..........",
+            "SSSSS.....CCCCCCCCNNNNN.........",
+            "SSSSDD...CCCCCCCCNNNNNN.........",
+            "SSLLDDDDDCCCCCCWWWWNNNN.........",
+            "SLLLDDDDDDDCCWWWWWWNNN.........",
+            "LLLLDDDDDDDDWWWWWWWNN..........",
+            "LLLLDDDDDDDDWWWWWWNN...........",
+            "LLLLDDDDDDHHHWWWWWN.............",
+            ".LLLDDDDDHHHHWWWWW..............",
+            "..LLDDDDDHHHHHWWW...............",
+            "...LDDDDDHHHHHW.................",
+            "....DDDDDHHHHH..................",
+            ".....DDDDHHHH...................",
+            "..........HHAAA.................",
+            "...........HAAA.................",
+            "............AAA.................",
+            "............AA..................",
         };
-        TEMPLATES.put("japan", new NationTemplate("Японская Империя", NationColor.WHITE, parseMap(jpMap, jpKey)));
+        TEMPLATES.put("usa", new NationTemplate("Соединённые Штаты Америки", NationColor.BLUE, parseMap(usaMap, usaKey)));
 
-        // =====================================================================
-        // 8. ТУРЦИЯ (Прямоугольник)
-        // =====================================================================
+        // =================================================================
+        // 4. БРАЗИЛИЯ (~250 чанков)
+        // Форма: выпуклая справа вверху, сужается внизу
+        // =================================================================
+        Map<Character, String> brKey = new HashMap<>();
+        brKey.put('M', "Манаус");
+        brKey.put('F', "Форталеза");
+        brKey.put('V', "Сальвадор");
+        brKey.put('B', "Бразилиа");
+        brKey.put('R', "Рио-де-Жанейро");
+        brKey.put('P', "Сан-Паулу");
+
+        String[] brMap = {
+            ".....MMMMMMFFFFF...........",
+            "....MMMMMMMFFFFFF..........",
+            "...MMMMMMMMFFFFFFF.........",
+            "...MMMMMMBBBVVVVVV.........",
+            "....MMMMMBBBBVVVVVV........",
+            ".....MMMBBBBBVVVVV.........",
+            "......MBBBBBBVVVV..........",
+            ".......BBBBBBRRRR..........",
+            "........BBBBBRRR...........",
+            ".........BBBPRRR...........",
+            "..........PPPPPR...........",
+            "...........PPPP............",
+            "............PPP............",
+            ".............PP............",
+        };
+        TEMPLATES.put("brazil", new NationTemplate("Федеративная Республика Бразилия", NationColor.GREEN, parseMap(brMap, brKey)));
+
+        // =================================================================
+        // 5. ИНДИЯ (~160 чанков)
+        // Форма: треугольник сужается к югу
+        // =================================================================
+        Map<Character, String> inKey = new HashMap<>();
+        inKey.put('J', "Джайпур");
+        inKey.put('D', "Дели");
+        inKey.put('K', "Калькутта");
+        inKey.put('M', "Мумбаи");
+        inKey.put('B', "Бангалор");
+        inKey.put('C', "Ченнаи");
+
+        String[] inMap = {
+            "....JJJDDDDDD...........",
+            "...JJJJDDDDDDKK.........",
+            "...JJJJDDDDDDKKK........",
+            "..JJJJDDDDDDDKKK........",
+            "..MMMMMDDDDDKKKK........",
+            "..MMMMMMDDDKKKK.........",
+            "..MMMMMMBBCCCCC..........",
+            "...MMMMMBBCCCC..........",
+            "....MMMBBBBCCC..........",
+            ".....MMBBBCCC...........",
+            "......BBBBCC............",
+            ".......BBBC.............",
+            "........BB..............",
+            ".........B..............",
+        };
+        TEMPLATES.put("india", new NationTemplate("Республика Индия", NationColor.TEAL, parseMap(inMap, inKey)));
+
+        // =================================================================
+        // 6. ТУРЦИЯ (~100 чанков)
+        // Форма: длинный прямоугольник, Стамбул слева
+        // =================================================================
         Map<Character, String> trKey = new HashMap<>();
-        trKey.put('A', "Анкара");
         trKey.put('S', "Стамбул");
+        trKey.put('A', "Анкара");
         trKey.put('I', "Измир");
-        trKey.put('L', "Анталья"); // antaLya
+        trKey.put('L', "Анталья");
         trKey.put('T', "Трабзон");
         trKey.put('G', "Газиантеп");
 
         String[] trMap = {
-            ".SSSSTTTTT...",
-            "SSAAATTTTTG..",
-            "IIAAAAAAGGG..",
-            "IILLLLLLGG...",
-            "..LLLLL......"
+            "..SSSAAAAAATTTTTT.......",
+            ".SSSSAAAAAATTTTTTT......",
+            "SSIIAAAAAAAATTTTTTGG....",
+            "SSIIAAAAAAAAATTTTTGGG...",
+            ".IIILLLAAAAATTTTTGGG....",
+            "..IILLLLLAAATTTGGGG.....",
+            "...LLLLLLAAATTGGG.......",
+            "....LLLLL...............",
         };
         TEMPLATES.put("turkey", new NationTemplate("Турецкая Республика", NationColor.ORANGE, parseMap(trMap, trKey)));
 
-        // =====================================================================
-        // 9. БРАЗИЛИЯ
-        // =====================================================================
-        Map<Character, String> brKey = new HashMap<>();
-        brKey.put('B', "Бразилиа");
-        brKey.put('S', "Сан-Паулу");
-        brKey.put('R', "Рио-де-Жанейро");
-        brKey.put('M', "Манаус");
-        brKey.put('F', "Форталеза");
-        brKey.put('V', "Сальвадор"); // salVador
+        // =================================================================
+        // 7. ФРАНЦИЯ (~90 чанков)
+        // Форма: шестиугольник (Hexagone)
+        // =================================================================
+        Map<Character, String> frKey = new HashMap<>();
+        frKey.put('N', "Нант");
+        frKey.put('P', "Париж");
+        frKey.put('S', "Страсбург");
+        frKey.put('B', "Бордо");
+        frKey.put('L', "Лион");
+        frKey.put('T', "Тулуза");
+        frKey.put('M', "Марсель");
 
-        String[] brMap = {
-            "MMMMMFFFFF...",
-            "MMMMMBVVVV...",
-            "..BBBBVVVV...",
-            "..BBBBRRRR...",
-            "...SSSRRR....",
-            "...SSS......."
+        String[] frMap = {
+            "...NNNPPPPP..........",
+            "..NNNNPPPPPSS........",
+            "..NNNPPPPPLSS........",
+            "..NNBBPPPLLL.........",
+            "...BBBBPLLLL.........",
+            "...BBBTTLLLL.........",
+            "....BTTTTMMM.........",
+            "....TTTTMMMMM........",
+            ".....TTTMMMM.........",
         };
-        TEMPLATES.put("brazil", new NationTemplate("Федеративная Республика Бразилия", NationColor.GREEN, parseMap(brMap, brKey)));
+        TEMPLATES.put("france", new NationTemplate("Французская Республика", NationColor.NAVY, parseMap(frMap, frKey)));
 
-        // =====================================================================
-        // 10. ИНДИЯ (Треугольник)
-        // =====================================================================
-        Map<Character, String> inKey = new HashMap<>();
-        inKey.put('D', "Дели");
-        inKey.put('M', "Мумбаи");
-        inKey.put('B', "Бангалор");
-        inKey.put('C', "Ченнаи");
-        inKey.put('K', "Калькутта");
-        inKey.put('J', "Джайпур");
+        // =================================================================
+        // 8. ЯПОНИЯ (~70 чанков)
+        // Форма: дуга из 4 островов, Хоккайдо вверху, Кюсю внизу
+        // =================================================================
+        Map<Character, String> jpKey = new HashMap<>();
+        jpKey.put('R', "Саппоро");
+        jpKey.put('T', "Токио");
+        jpKey.put('N', "Нагоя");
+        jpKey.put('O', "Осака");
+        jpKey.put('H', "Хиросима");
+        jpKey.put('F', "Фукуока");
 
-        String[] inMap = {
-            "...JJDDDDKK..",
-            "..JJJDDDDKKK.",
-            ".MMMM...KKK..",
-            ".MMMMBBCCC...",
-            "..MMBBBCC....",
-            "...BBBC......"
+        String[] jpMap = {
+            "........RRRR.........",
+            ".......RRRRR.........",
+            "........RRR..........",
+            "..........T..........",
+            ".........TT..........",
+            "........TTTT.........",
+            "........TTTT.........",
+            ".......NNTT..........",
+            "......NNN............",
+            ".....OONN............",
+            "....OOOO.............",
+            "...HOO...............",
+            "..HHH................",
+            ".FHH.................",
+            "FFF..................",
+            "FF...................",
         };
-        TEMPLATES.put("india", new NationTemplate("Республика Индия", NationColor.TEAL, parseMap(inMap, inKey)));
+        TEMPLATES.put("japan", new NationTemplate("Японская Империя", NationColor.WHITE, parseMap(jpMap, jpKey)));
 
-        // =====================================================================
-        // 11. РУМЫНИЯ (Рыбка)
-        // =====================================================================
+        // =================================================================
+        // 9. ГЕРМАНИЯ (~65 чанков)
+        // Форма: широкий север, сужается к югу
+        // =================================================================
+        Map<Character, String> gerKey = new HashMap<>();
+        gerKey.put('H', "Гамбург");
+        gerKey.put('B', "Берлин");
+        gerKey.put('K', "Кёльн");
+        gerKey.put('F', "Франкфурт");
+        gerKey.put('D', "Дрезден");
+        gerKey.put('S', "Штутгарт");
+        gerKey.put('M', "Мюнхен");
+
+        String[] gerMap = {
+            "...HHHHHBBBB.........",
+            "..HHHHHHBBBBB........",
+            "..HHHHHBBBBBD........",
+            ".KKKHHFFDDDDD........",
+            ".KKKFFFFDDD..........",
+            "..KKFFFSSS...........",
+            "...FFFSSSSS..........",
+            "...SSSSSMMM..........",
+            "....SSMMMM...........",
+            ".....MMMM............",
+        };
+        TEMPLATES.put("germany", new NationTemplate("Федеративная Республика Германия", NationColor.GOLD, parseMap(gerMap, gerKey)));
+
+        // =================================================================
+        // 10. ВЕЛИКОБРИТАНИЯ (~55 чанков)
+        // Форма: вытянутая, Шотландия наверху, Англия внизу шире
+        // =================================================================
+        Map<Character, String> ukKey = new HashMap<>();
+        ukKey.put('E', "Эдинбург");
+        ukKey.put('G', "Глазго");
+        ukKey.put('M', "Манчестер");
+        ukKey.put('V', "Ливерпуль");
+        ukKey.put('B', "Бирмингем");
+        ukKey.put('R', "Бристоль");
+        ukKey.put('L', "Лондон");
+
+        String[] ukMap = {
+            "...EE................",
+            "..GEE................",
+            "..GGE................",
+            "..GGE................",
+            "...MM................",
+            "..VMM................",
+            "..VVMM...............",
+            "..VVBB...............",
+            "..RRBB...............",
+            "..RRBBL..............",
+            "..RRLLL..............",
+            "...LLLL..............",
+            "...LLLL..............",
+            "....LL...............",
+        };
+        TEMPLATES.put("uk", new NationTemplate("Соединённое Королевство", NationColor.PURPLE, parseMap(ukMap, ukKey)));
+
+        // =================================================================
+        // 11. РУМЫНИЯ (~50 чанков)
+        // Форма: овал с Карпатами в центре
+        // =================================================================
         Map<Character, String> roKey = new HashMap<>();
-        roKey.put('B', "Бухарест");
-        roKey.put('C', "Клуж-Напока"); // Cluj
+        roKey.put('C', "Клуж-Напока");
+        roKey.put('I', "Яссы");
         roKey.put('T', "Тимишоара");
-        roKey.put('I', "Яссы"); // Iasi
-        roKey.put('O', "Констанца"); // cOnstanta
+        roKey.put('B', "Бухарест");
+        roKey.put('O', "Констанца");
 
         String[] roMap = {
-            "..CCCIII...",
-            ".TCCCII....",
-            ".TTTBBB....",
-            "..BBBBBOO..",
-            "....BBOOO.."
+            "...CCCCIIIII.........",
+            "..TCCCCIIIII.........",
+            "..TTCCCIIII..........",
+            "..TTTCBBBBI..........",
+            "..TTBBBBBBOO.........",
+            "...TBBBBBOOO.........",
+            "....BBBBOOO..........",
+            ".....BBOOO...........",
         };
         TEMPLATES.put("romania", new NationTemplate("Румыния", NationColor.YELLOW, parseMap(roMap, roKey)));
     }
