@@ -422,7 +422,7 @@ public class BlueMapIntegration {
         return mShapeMarkerBuild.invoke(bd);
     }
 
-    private static String buildTownPopup(Town town, Nation nation) {
+        private static String buildTownPopup(Town town, Nation nation) {
         String nationName = nation != null ? nation.getName() : "Без нации";
         String townName = town.getName();
         String mayorName = getPlayerName(town.getMayor());
@@ -430,40 +430,36 @@ public class BlueMapIntegration {
 
         StringBuilder sb = new StringBuilder();
 
-        // Основной контейнер с классом
-        sb.append("<div class=\"nations-popup-content\" style=\"font-family:'Segoe UI',Arial,sans-serif;padding:8px;\">");
+        // Контейнер с жесткой шириной
+        sb.append("<div style=\"font-family:'Segoe UI',sans-serif; width:300px; padding:5px;\">");
 
-        // Заголовок (Нация и Город) - Белый
-        sb.append("<div style=\"text-align:center;font-size:120%;font-weight:bold;color:#e6e8f0;margin-bottom:8px;\">");
-        sb.append("<span style=\"color:#b6b8bf\">Нация: </span>").append(escapeHtml(nationName)).append("<br>");
-        sb.append("<span style=\"color:#b6b8bf\">Город: </span>").append(escapeHtml(townName));
+        // Заголовок: Нация и Город
+        sb.append("<div style=\"text-align:center; margin-bottom:10px;\">");
+        sb.append("<div style=\"font-size:14px; font-weight:bold; color:#b6b8bf;\">Нация: <span style=\"color:#ffffff;\">").append(escapeHtml(nationName)).append("</span></div>");
+        sb.append("<div style=\"font-size:16px; font-weight:bold; color:#b6b8bf; margin-top:2px;\">Город: <span style=\"color:#ffffff;\">").append(escapeHtml(townName)).append("</span></div>");
         sb.append("</div>");
 
-        // Разделитель
-        sb.append("<hr style=\"border:0;border-top:1px solid #555;margin:8px 0\">");
+        // Линия
+        sb.append("<div style=\"height:1px; background:#555; margin:8px 0;\"></div>");
 
-        // Мэр - Желтый
-        sb.append("<div style=\"font-weight:bold;margin-bottom:4px;\">");
-        sb.append("<span style=\"color:#b6b8bf\">Мэр: </span>");
-        sb.append("<span style=\"color:#f5c542\">").append(escapeHtml(mayorName)).append("</span>");
-        sb.append("</div>");
+        // Инфо
+        sb.append("<div style=\"line-height:1.5;\">");
+        
+        // Мэр
+        sb.append("<div><span style=\"color:#b6b8bf; font-weight:bold;\">Мэр: </span>");
+        sb.append("<span style=\"color:#ffd700; font-weight:bold;\">").append(escapeHtml(mayorName)).append("</span></div>");
 
-        // Жители - Белые
-        sb.append("<div style=\"font-weight:bold;\">");
-        sb.append("<span style=\"color:#b6b8bf\">Жители: </span>");
-        sb.append("<span style=\"color:#e6e8f0\">");
+        // Жители
+        sb.append("<div style=\"margin-top:4px;\"><span style=\"color:#b6b8bf; font-weight:bold;\">Жители: </span>");
+        sb.append("<span style=\"color:#ffffff;\">");
         if (memberNames.isEmpty()) {
             sb.append("—");
         } else {
-            for (int i = 0; i < memberNames.size(); i++) {
-                if (i > 0) sb.append(", ");
-                sb.append(escapeHtml(memberNames.get(i)));
-            }
+            sb.append(String.join(", ", memberNames));
         }
-        sb.append("</span>");
-        sb.append("</div>");
-
-        sb.append("</div>");
+        sb.append("</span></div>");
+        
+        sb.append("</div></div>");
         return sb.toString();
     }
 
