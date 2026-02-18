@@ -37,8 +37,6 @@ public class BlueMapIntegration {
     private static Constructor<?> cVector2d, cVector3d, cShape, cColor;
     private static Method mOnEnable;
 
-    private static final int SMOOTH_ITERATIONS = 3;
-
     public static void init() {
         if (!ModList.get().isLoaded("bluemap")) {
             NationsMod.LOGGER.warn("BlueMap not found, integration disabled.");
@@ -58,14 +56,8 @@ public class BlueMapIntegration {
     private static void tryLoadIconsFromResources() {
         String capitalFromRes = loadResourceAsBase64("/assets/nations/bluemap/capital_icon.png");
         String townFromRes = loadResourceAsBase64("/assets/nations/bluemap/town_icon.png");
-        if (capitalFromRes != null) {
-            CAPITAL_ICON_BASE64 = capitalFromRes;
-            NationsMod.LOGGER.info("Capital icon loaded from resources");
-        }
-        if (townFromRes != null) {
-            TOWN_ICON_BASE64 = townFromRes;
-            NationsMod.LOGGER.info("Town icon loaded from resources");
-        }
+        if (capitalFromRes != null) { CAPITAL_ICON_BASE64 = capitalFromRes; }
+        if (townFromRes != null) { TOWN_ICON_BASE64 = townFromRes; }
     }
 
     private static String loadResourceAsBase64(String path) {
@@ -148,50 +140,6 @@ public class BlueMapIntegration {
 
     public static boolean isEnabled() { return enabled && blueMapAPI != null; }
 
-    // ================================================================
-    //                    СГЛАЖИВАНИЕ ГРАНИЦ
-    // ================================================================
-
-    private static List<Point> smoothPolygon(List<Point> polygon, int iterations) {
-        if (polygon.size() < 3) return polygon;
-        List<Point> result = new ArrayList<>(polygon);
-        for (int iter = 0; iter < iterations; iter++) {
-            List<Point> smoothed = new ArrayList<>();
-            int n = result.size();
-            for (int i = 0; i < n; i++) {
-                Point p0 = result.get(i);
-                Point p1 = result.get((i + 1) % n);
-                smoothed.add(new Point(0.75 * p0.x + 0.25 * p1.x, 0.75 * p0.z + 0.25 * p1.z));
-                smoothed.add(new Point(0.25 * p0.x + 0.75 * p1.x, 0.25 * p0.z + 0.75 * p1.z));
-            }
-            result = smoothed;
-        }
-        return result;
-    }
-
-    private static List<Point> simplifyPolygon(List<Point> polygon, double tolerance) {
-        if (polygon.size() < 3) return polygon;
-        List<Point> result = new ArrayList<>();
-        int n = polygon.size();
-        for (int i = 0; i < n; i++) {
-            Point prev = polygon.get((i - 1 + n) % n);
-            Point curr = polygon.get(i);
-            Point next = polygon.get((i + 1) % n);
-            double cross = Math.abs((curr.x - prev.x) * (next.z - prev.z) - (curr.z - prev.z) * (next.x - prev.x));
-            if (cross > tolerance) result.add(curr);
-        }
-        return result.size() >= 3 ? result : polygon;
-    }
-
-    private static List<Point> processPolygon(List<Point> polygon) {
-        List<Point> simplified = simplifyPolygon(polygon, 0.5);
-        return smoothPolygon(simplified, SMOOTH_ITERATIONS);
-    }
-
-    // ================================================================
-    //                    ГЛАВНЫЙ МЕТОД ОБНОВЛЕНИЯ
-    // ================================================================
-
     @SuppressWarnings("unchecked")
     public static void updateAllMarkers() {
         if (!enabled || blueMapAPI == null) {
@@ -222,21 +170,18 @@ public class BlueMapIntegration {
                 tMarkers.clear();
                 iMarkers.clear();
 
-                // 1. Внешняя граница нации
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawNationTerritory(nation, tMarkers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Nation territory error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
-                // 2. Границы городов внутри наций
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawNationTownBorders(nation, tMarkers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Town border error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
-                // 3. Города без нации
                 for (Town town : NationsData.getAllTowns()) {
                     if (town.getNationName() == null) {
                         try { drawStandaloneTown(town, tMarkers); } catch (Exception e) {
@@ -245,7 +190,6 @@ public class BlueMapIntegration {
                     }
                 }
 
-                // 4. Иконки
                 for (Town town : NationsData.getAllTowns()) {
                     try { drawTownIcon(town, iMarkers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Icon error " + town.getName() + ": " + e.getMessage());
@@ -271,10 +215,6 @@ public class BlueMapIntegration {
         return set;
     }
 
-    // ================================================================
-    //                    ТЕРРИТОРИЯ НАЦИИ
-    // ================================================================
-
     private static void drawNationTerritory(Nation nation, Map<String, Object> markers) throws Exception {
         Set<ChunkPos> allChunks = new HashSet<>();
         for (String tn : nation.getTowns()) {
@@ -284,7 +224,7 @@ public class BlueMapIntegration {
         if (allChunks.isEmpty()) return;
 
         Set<String> outerEdges = calcEdges(allChunks);
-        List<List<Point>> rawPolygons = tracePolygons(outerEdges);
+        List<List<Point>> polygons = tracePolygons(outerEdges);
 
         int hex = nation.getColor().getHex();
         int cr = (hex >> 16) & 0xFF, cg = (hex >> 8) & 0xFF, cb = hex & 0xFF;
@@ -295,18 +235,12 @@ public class BlueMapIntegration {
         String popup = buildNationPopup(nation, cr, cg, cb);
 
         int i = 0;
-        for (List<Point> rawPoly : rawPolygons) {
-            if (rawPoly.size() < 3) continue;
-            List<Point> smoothed = processPolygon(rawPoly);
-            if (smoothed.size() < 3) continue;
+        for (List<Point> poly : polygons) {
+            if (poly.size() < 3) continue;
             markers.put("nation_" + nation.getName() + "_" + (i++),
-                createShapeMarker(nation.getName(), createShape(smoothed), fill, line, 3, popup));
+                createShapeMarker(nation.getName(), createShape(poly), fill, line, 3, popup));
         }
     }
-
-    // ================================================================
-    //              ГРАНИЦЫ ГОРОДОВ ВНУТРИ НАЦИИ
-    // ================================================================
 
     private static void drawNationTownBorders(Nation nation, Map<String, Object> markers) throws Exception {
         List<String> townNames = new ArrayList<>(nation.getTowns());
@@ -327,25 +261,19 @@ public class BlueMapIntegration {
             String townPopup = buildTownPopup(town, nation.getName(), cr, cg, cb);
 
             int j = 0;
-            for (List<Point> rawPoly : townPolygons) {
-                if (rawPoly.size() < 3) continue;
-                List<Point> smoothed = processPolygon(rawPoly);
-                if (smoothed.size() < 3) continue;
+            for (List<Point> poly : townPolygons) {
+                if (poly.size() < 3) continue;
                 markers.put("townborder_" + townName + "_" + (j++),
-                    createShapeMarker(townName, createShape(smoothed), noFill, townLine, 1, townPopup));
+                    createShapeMarker(townName, createShape(poly), noFill, townLine, 1, townPopup));
             }
         }
     }
-
-    // ================================================================
-    //                   ГОРОДА БЕЗ НАЦИИ
-    // ================================================================
 
     private static void drawStandaloneTown(Town town, Map<String, Object> markers) throws Exception {
         if (town.getClaimedChunks().isEmpty()) return;
 
         Set<String> edges = calcEdges(town.getClaimedChunks());
-        List<List<Point>> rawPolygons = tracePolygons(edges);
+        List<List<Point>> polygons = tracePolygons(edges);
 
         int cr = 150, cg = 150, cb = 150;
         float fillAlpha = 0.25f;
@@ -357,29 +285,20 @@ public class BlueMapIntegration {
         String popup = buildTownPopup(town, "Независимый город", cr, cg, cb);
 
         int i = 0;
-        for (List<Point> rawPoly : rawPolygons) {
-            if (rawPoly.size() < 3) continue;
-            List<Point> smoothed = processPolygon(rawPoly);
-            if (smoothed.size() < 3) continue;
+        for (List<Point> poly : polygons) {
+            if (poly.size() < 3) continue;
             markers.put("standalone_" + town.getName() + "_" + (i++),
-                createShapeMarker(town.getName(), createShape(smoothed), fill, line, 2, popup));
+                createShapeMarker(town.getName(), createShape(poly), fill, line, 2, popup));
         }
     }
-
-    // ================================================================
-    //          ИКОНКИ ГОРОДОВ — только картинка, без подписей
-    // ================================================================
 
     private static void drawTownIcon(Town town, Map<String, Object> markers) throws Exception {
         if (town.getSpawnPos() == null) return;
 
         boolean isCapital = false;
-
         if (town.getNationName() != null) {
             Nation nation = NationsData.getNation(town.getNationName());
-            if (nation != null) {
-                isCapital = nation.isCapital(town.getName());
-            }
+            if (nation != null) isCapital = nation.isCapital(town.getName());
         }
 
         double px = town.getSpawnPos().getX() + 0.5;
@@ -420,10 +339,6 @@ public class BlueMapIntegration {
 
         markers.put("icon_" + town.getName(), mHtmlMarkerBuild.invoke(builder));
     }
-
-    // ================================================================
-    //                    ГЕОМЕТРИЯ
-    // ================================================================
 
     private static Set<String> calcEdges(Set<ChunkPos> chunks) {
         Set<String> edges = new HashSet<>();
@@ -467,10 +382,6 @@ public class BlueMapIntegration {
         return polys;
     }
 
-    // ================================================================
-    //                    СОЗДАНИЕ МАРКЕРОВ
-    // ================================================================
-
     private static Object createShape(List<Point> pts) throws Exception {
         Object arr = java.lang.reflect.Array.newInstance(clsVector2d, pts.size());
         for (int i = 0; i < pts.size(); i++)
@@ -490,34 +401,26 @@ public class BlueMapIntegration {
         return mShapeMarkerBuild.invoke(bd);
     }
 
-    // ================================================================
-    //                         ПОПАПЫ
-    // ================================================================
-
     private static String buildNationPopup(Nation n, int r, int g, int b) {
         String c = "rgb(" + r + "," + g + "," + b + ")";
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family:'Segoe UI',sans-serif;padding:14px;color:#fff;")
           .append("background:rgba(10,10,15,0.94);border-radius:10px;border:2px solid ").append(c)
           .append(";min-width:200px;\">");
-
         sb.append("<div style=\"font-size:18px;font-weight:bold;color:").append(c)
           .append("\">🏛 ").append(escapeHtml(n.getName())).append("</div>");
         sb.append("<hr style=\"border:0;border-top:1px solid #333;margin:8px 0\">");
-
         sb.append("<div style=\"font-size:13px;line-height:1.8;\">");
         sb.append("<div>🏰 Городов: <b style=\"color:#FFD700\">").append(n.getTowns().size()).append("</b></div>");
         sb.append("<div>👥 Жителей: <b>").append(n.getTotalMembers()).append("</b></div>");
         sb.append("<div>📍 Территория: <b>").append(n.getTotalChunks()).append("</b> чанков</div>");
         sb.append("</div>");
-
         if (n.getCapitalTown() != null) {
             sb.append("<div style=\"margin-top:8px;padding:4px 8px;background:rgba(255,215,0,0.1);")
               .append("border-radius:4px;border-left:3px solid #FFD700;\">")
               .append("👑 Столица: <b style=\"color:#FFD700\">")
               .append(escapeHtml(n.getCapitalTown())).append("</b></div>");
         }
-
         if (n.getTowns().size() > 1) {
             sb.append("<div style=\"margin-top:6px;font-size:11px;color:#888;\">Города: ");
             int count = 0;
@@ -532,14 +435,12 @@ public class BlueMapIntegration {
             }
             sb.append("</div>");
         }
-
         if (!n.getWarTargets().isEmpty()) {
             sb.append("<div style=\"margin-top:8px;padding:4px 8px;background:rgba(255,0,0,0.15);")
               .append("border-radius:4px;color:#F44;border-left:3px solid #F44;\">")
               .append("⚔ Война: ").append(escapeHtml(String.join(", ", n.getWarTargets())))
               .append("</div>");
         }
-
         sb.append("</div>");
         return sb.toString();
     }
@@ -549,18 +450,14 @@ public class BlueMapIntegration {
         StringBuilder sb = new StringBuilder();
         sb.append("<div style=\"font-family:'Segoe UI',sans-serif;padding:10px;color:#fff;")
           .append("background:rgba(10,10,15,0.94);border-radius:8px;border:1px solid ").append(c).append(";\">");
-
         sb.append("<div style=\"font-size:15px;font-weight:bold\">🏘 ").append(escapeHtml(t.getName())).append("</div>");
         sb.append("<div style=\"color:").append(c).append(";font-size:12px;margin-top:2px;\">").append(escapeHtml(nName)).append("</div>");
-
         sb.append("<div style=\"font-size:12px;color:#aaa;margin-top:6px;\">")
           .append("👥 ").append(t.getMembers().size())
           .append(" │ 📍 ").append(t.getClaimedChunks().size()).append(" чанков</div>");
-
         if (t.isAtWar()) sb.append("<div style=\"color:#F44;margin-top:4px;\">⚔ В СОСТОЯНИИ ВОЙНЫ</div>");
         if (t.isCaptured()) sb.append("<div style=\"color:#FA0;margin-top:4px;\">🏴 Захвачен: ")
             .append(escapeHtml(t.getCapturedBy())).append("</div>");
-
         sb.append("</div>");
         return sb.toString();
     }
@@ -570,10 +467,6 @@ public class BlueMapIntegration {
         return text.replace("&", "&amp;").replace("<", "&lt;")
                    .replace(">", "&gt;").replace("\"", "&quot;");
     }
-
-    // ================================================================
-    //                        POINT
-    // ================================================================
 
     static class Point {
         double x, z;
