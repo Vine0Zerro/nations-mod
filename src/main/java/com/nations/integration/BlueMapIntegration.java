@@ -16,9 +16,6 @@ public class BlueMapIntegration {
     private static Object blueMapAPI = null;
     private static final String MARKER_SET_ID = "nations_towns";
 
-    private static final String ICON_CROWN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gIQFR0z0/48VwAAAqVJREFUWMPtl89rE0EUx7+zs7vbFk0tVv+A4kERrJdePCh48CDiQfBisp68e/GsB717F/wD/AfEg3gQBC2ItyJ6Ew/WgxQramO32d3ZmRkP2zbZpGk3iXjwcWbe2/fNfN+ZefMGRF+W9X8D0C6V90d9LyPzQ4g0L0GZpwD4E+D6wN/16fN7I0Qh0FqZAtA+d+6o+30nhDYEASLhQGtlhghk/2ATADxpJigzTSa8IhqNQiMRCGBCeaSMjUZgCBCLte8SpV7o2M/JpA0AsrD+EwB0GGEALqb3A8gRsblo9yfZF0qy10w0fK21+9SLdWtO9cp4/b5QHTryHCdiawFk36oDAGSNMAD68JcA5OfDGV6p3b54r7FohfIZ8ypdz7a0nnpl8pr/1cajg9+b+A+vrfgA385dPfBYtPGlW15x6KwzOuVoBULs3BtJfbfZCO3sdwuvR4Ux/NfqCHdUedO+mhUvnymNVX+Q7Lnx+8ooM8e/wotnX33qiYbmLw8W5gdmVGnmsegXAPkAwCiK7bNng4o8n7LsL4o3f2h5yqdn8g2ZENbRdhE/HsI40CkTDLtFrrpzA5dWVIb6Mv7QgDPXP+IV6ZRJbIwD7SJ+vFZYRx6d/pv0lUL86GWTsvrCZlHzfHNNdM+OxtSiA/eem/Old8i53qt/rrvztNVVs2bVBTtlGGLsbTsRDQ/8K6xU7pBXdkf2hPMkpjFkIbTrkSOZrJCGfm3g9q5Iwj7dFxoibxn5M1K5GR7nlwfjdUHbbtlWba4orZdr/zIx+qeyaf5uwCwuAiw6EJcm2S49PegtXNyxNdG979HWkzccJ+Qnc3g1pcydTdX6bZ36mZ/eUPb50ZnY9l3tL/RubYj09jRGd/Z2vPCv29Oxn13X9vYO9UzPpkq9X1PK6GSB645jP74rc3L3zuSGfnf2QrS5ON0QCj2YgSklsKlQrajok/8B+le5c6l0OCgAAAAASUVORK5CYII=";
-    private static final String ICON_TOWN = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAMAAAAoLQ9TAAAAA3NCSVQICAjb4U/gAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH6gIQFR4s+v8+3QAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAABLUExURQAAAM/P0dDQ0svLzczMzvfz9vv7+/z7++Tm5tzd2/r5+fj49/n19/79/fX19P/+/v38/P39/f///+rq6cfHxt7e3qenpt/f3qiop9XU1KalpcC+vqKhocG/v8/PzquqqqGfn6OiocG7v8bFxMLAwNTU07q6uaWjpKqpqaaipa6qrLOusamlp6yoqv///9/h4dja2f////j49u3t7NLU1MbHxevr6vr6+erq6e3t7N3d3MbGxt7e3uDf37e3tqempt/f3t/f37a2tainp9TU09ra2bKxsaWlpL68vMvKydTT09XV1Lu7u7Kysainp5+enry6usHAv7Cwr5yam+np6NjY2NLS0ubm5eXl5d3d3MnJyN/f39vb27+/v7q6ud7e3tva2r+/vv///+VauVgAAABUdFJOUwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKU1MITbP29rNNOe3tOUD29kBA9vZAOe3tOAhNs/f2s0wIClxcCsucjc0AAAABYktHRBJ7vGwAAAAAC4lEQVQY02NgIBIwMjGzIHFZ2dg5OLm4eWB8dl4+PX0DPT5+AaiAoKGRsYmpmbmhEFRA2MIyJDQs3MpaBCogamMbERIZZWcvBhUQd3CMjomNc3KWgApIurjGJyTGublLQQWkPTy9vH18/fxloAKy0nIBgUHB8gqKMIcopaioqqlraCK5VUtbR5dYbwIAoBMTO+1B/sUAAAAASUVORK5CYII=";
-
     private static Class<?> clsBlueMapAPI, clsBlueMapMap, clsMarkerSet;
     private static Class<?> clsShapeMarker, clsShape, clsVector2d, clsVector3d, clsColor;
     private static Class<?> clsHtmlMarker;
@@ -112,7 +109,7 @@ public class BlueMapIntegration {
         Consumer<Object> callback = api -> {
             blueMapAPI = api;
             enabled = true;
-            NationsMod.LOGGER.info("BlueMap API available! Rendering markers...");
+            NationsMod.LOGGER.info("BlueMap API available!");
             try { updateAllMarkers(); } catch (Exception e) {
                 NationsMod.LOGGER.error("Initial render error: " + e.getMessage());
             }
@@ -157,18 +154,21 @@ public class BlueMapIntegration {
                 Map<String, Object> markers = (Map<String, Object>) mMarkerSetGetMarkers.invoke(markerSet);
                 markers.clear();
 
+                // 1. Заливка + внешняя граница наций (толщина 4)
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawNationFill(nation, markers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Nation error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
+                // 2. Внутренние границы между городами (толщина 2)
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawInnerBorders(nation, markers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Inner border error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
+                // 3. Города без нации
                 for (Town town : NationsData.getAllTowns()) {
                     if (town.getNationName() == null) {
                         try { drawStandaloneTown(town, markers); } catch (Exception e) {
@@ -177,6 +177,7 @@ public class BlueMapIntegration {
                     }
                 }
 
+                // 4. Иконки городов
                 for (Town town : NationsData.getAllTowns()) {
                     try { drawTownIcon(town, markers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Icon error " + town.getName() + ": " + e.getMessage());
@@ -229,26 +230,33 @@ public class BlueMapIntegration {
         Object lineCol = cColor.newInstance(dr, dg, db, 0.6f);
         Object noFill = cColor.newInstance(0, 0, 0, 0.0f);
 
-        Set<String> innerEdges = new HashSet<>();
+        // Собираем уникальные рёбра между разными городами
+        Set<String> processedEdges = new HashSet<>();
+        List<double[]> edgeCoords = new ArrayList<>();
+
         for (Map.Entry<ChunkPos, String> entry : chunkToTown.entrySet()) {
             ChunkPos cp = entry.getKey();
             String myTown = entry.getValue();
             double x1 = cp.x * 16.0, z1 = cp.z * 16.0;
             double x2 = x1 + 16.0, z2 = z1 + 16.0;
 
-            addInnerEdge(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x, cp.z - 1), x1, z1, x2, z1);
-            addInnerEdge(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x, cp.z + 1), x1, z2, x2, z2);
-            addInnerEdge(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x + 1, cp.z), x2, z1, x2, z2);
-            addInnerEdge(innerEdges, chunkToTown, myTown, new ChunkPos(cp.x - 1, cp.z), x1, z1, x1, z2);
+            collectInnerEdge(processedEdges, edgeCoords, chunkToTown, myTown, new ChunkPos(cp.x, cp.z - 1), x1, z1, x2, z1);
+            collectInnerEdge(processedEdges, edgeCoords, chunkToTown, myTown, new ChunkPos(cp.x, cp.z + 1), x1, z2, x2, z2);
+            collectInnerEdge(processedEdges, edgeCoords, chunkToTown, myTown, new ChunkPos(cp.x + 1, cp.z), x2, z1, x2, z2);
+            collectInnerEdge(processedEdges, edgeCoords, chunkToTown, myTown, new ChunkPos(cp.x - 1, cp.z), x1, z1, x1, z2);
         }
 
+        // Также убираем рёбра которые совпадают с внешней границей нации
+        Set<ChunkPos> allNationChunks = new HashSet<>(chunkToTown.keySet());
+
         int j = 0;
-        for (String edge : innerEdges) {
-            String[] pts = edge.split(">");
-            String[] partA = pts[0].split(",");
-            String[] partB = pts[1].split(",");
-            double ax = Double.parseDouble(partA[0]), az = Double.parseDouble(partA[1]);
-            double bx = Double.parseDouble(partB[0]), bz = Double.parseDouble(partB[1]);
+        for (double[] ec : edgeCoords) {
+            double ax = ec[0], az = ec[1], bx = ec[2], bz = ec[3];
+
+            // Проверяем: это ребро НЕ должно быть на внешней границе нации
+            // Внешняя граница = ребро где с одной стороны нация, с другой — пустота
+            // Внутреннее ребро = с обеих сторон есть чанки нации, но разных городов
+            // Так как мы уже фильтруем по "другой город той же нации", это автоматически внутреннее
 
             List<Point> linePoly = new ArrayList<>();
             double w = 0.3;
@@ -268,13 +276,23 @@ public class BlueMapIntegration {
         }
     }
 
-    private static void addInnerEdge(Set<String> edges, Map<ChunkPos, String> map, String myTown, ChunkPos neighbor,
-                                      double x1, double z1, double x2, double z2) {
+    private static void collectInnerEdge(Set<String> processed, List<double[]> coords,
+                                          Map<ChunkPos, String> map, String myTown, ChunkPos neighbor,
+                                          double x1, double z1, double x2, double z2) {
         String other = map.get(neighbor);
         if (other != null && !other.equals(myTown)) {
-            String p1 = x1 + "," + z1, p2 = x2 + "," + z2;
-            if (p1.compareTo(p2) > 0) { String t = p1; p1 = p2; p2 = t; }
-            edges.add(p1 + ">" + p2);
+            // Создаём уникальный ключ для ребра (сортировка координат + имён городов)
+            String edgeKey;
+            String townA = myTown.compareTo(other) < 0 ? myTown : other;
+            String townB = myTown.compareTo(other) < 0 ? other : myTown;
+            double minX = Math.min(x1, x2), minZ = Math.min(z1, z2);
+            double maxX = Math.max(x1, x2), maxZ = Math.max(z1, z2);
+            edgeKey = townA + "|" + townB + "|" + minX + "," + minZ + "," + maxX + "," + maxZ;
+
+            if (!processed.contains(edgeKey)) {
+                processed.add(edgeKey);
+                coords.add(new double[]{x1, z1, x2, z2});
+            }
         }
     }
 
@@ -316,13 +334,21 @@ public class BlueMapIntegration {
         double py = town.getSpawnPos().getY() + 2.0;
         double pz = town.getSpawnPos().getZ() + 0.5;
 
-        String icon = isCapital ? ICON_CROWN : ICON_TOWN;
-        int size = isCapital ? 32 : 16;
-        int half = size / 2;
+        // Используем CSS background-image с base64 вместо <img>
+        String symbol = isCapital ? "&#x1F451;" : "&#x1F3E0;";
+        int size = isCapital ? 28 : 18;
 
-        String html = "<div style=\"transform:translate(-" + half + "px,-" + half + "px);\">" +
-            "<img src=\"" + icon + "\" width=\"" + size + "\" height=\"" + size + "\" style=\"display:block;\" />" +
-            "</div>";
+        String html = "<div style=\"" +
+            "position:relative;" +
+            "transform:translate(-50%,-50%);" +
+            "width:" + size + "px;" +
+            "height:" + size + "px;" +
+            "font-size:" + size + "px;" +
+            "line-height:" + size + "px;" +
+            "text-align:center;" +
+            "cursor:pointer;" +
+            "filter:drop-shadow(0 0 2px rgba(0,0,0,0.8));" +
+            "\">" + symbol + "</div>";
 
         Object builder = mHtmlMarkerBuilder.invoke(null);
         mHtmlMarkerLabel.invoke(builder, town.getName());
@@ -349,16 +375,16 @@ public class BlueMapIntegration {
         return edges;
     }
 
-    private static void toggleEdge(Set<String> e, double x1, double z1, double x2, double z2) {
+    private static void toggleEdge(Set<String> edgeSet, double x1, double z1, double x2, double z2) {
         String f = x1+","+z1+">"+x2+","+z2, rev = x2+","+z2+">"+x1+","+z1;
-        if (e.contains(rev)) e.remove(rev); else e.add(f);
+        if (edgeSet.contains(rev)) edgeSet.remove(rev); else edgeSet.add(f);
     }
 
     private static List<List<Point>> tracePolygons(Set<String> edges) {
         List<List<Point>> polys = new ArrayList<>();
         Map<Point, Point> map = new HashMap<>();
-        for (String e : edges) {
-            String[] p = e.split(">");
+        for (String edgeStr : edges) {
+            String[] p = edgeStr.split(">");
             String[] pa = p[0].split(","), pb = p[1].split(",");
             map.put(new Point(Double.parseDouble(pa[0]), Double.parseDouble(pa[1])),
                     new Point(Double.parseDouble(pb[0]), Double.parseDouble(pb[1])));
@@ -366,8 +392,8 @@ public class BlueMapIntegration {
         while (!map.isEmpty()) {
             List<Point> poly = new ArrayList<>();
             Point start = map.keySet().iterator().next(), curr = start;
-            int s = 0;
-            while (curr != null && s++ < 200000) {
+            int safety = 0;
+            while (curr != null && safety++ < 200000) {
                 poly.add(curr);
                 Point next = map.remove(curr);
                 if (next == null || next.equals(start)) break;
