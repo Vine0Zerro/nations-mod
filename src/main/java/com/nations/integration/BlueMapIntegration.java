@@ -170,18 +170,21 @@ public class BlueMapIntegration {
                 tMarkers.clear();
                 iMarkers.clear();
 
+                // 1. Внешняя граница нации — заливка без попапа
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawNationTerritory(nation, tMarkers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Nation territory error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
+                // 2. Каждый город внутри нации — контур с попапом
                 for (Nation nation : NationsData.getAllNations()) {
                     try { drawNationTownBorders(nation, tMarkers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Town border error " + nation.getName() + ": " + e.getMessage());
                     }
                 }
 
+                // 3. Города без нации
                 for (Town town : NationsData.getAllTowns()) {
                     if (town.getNationName() == null) {
                         try { drawStandaloneTown(town, tMarkers); } catch (Exception e) {
@@ -190,6 +193,7 @@ public class BlueMapIntegration {
                     }
                 }
 
+                // 4. Иконки
                 for (Town town : NationsData.getAllTowns()) {
                     try { drawTownIcon(town, iMarkers); } catch (Exception e) {
                         NationsMod.LOGGER.error("Icon error " + town.getName() + ": " + e.getMessage());
@@ -215,6 +219,10 @@ public class BlueMapIntegration {
         return set;
     }
 
+    // ================================================================
+    //  ТЕРРИТОРИЯ НАЦИИ — заливка, без попапа
+    // ================================================================
+
     private static void drawNationTerritory(Nation nation, Map<String, Object> markers) throws Exception {
         Set<ChunkPos> allChunks = new HashSet<>();
         for (String tn : nation.getTowns()) {
@@ -232,19 +240,21 @@ public class BlueMapIntegration {
         float fillAlpha = !nation.getWarTargets().isEmpty() ? 0.35f : 0.22f;
         Object fill = cColor.newInstance(cr, cg, cb, fillAlpha);
         Object line = cColor.newInstance(cr, cg, cb, 1.0f);
-        String popup = buildNationPopup(nation, cr, cg, cb);
 
         int i = 0;
         for (List<Point> poly : polygons) {
             if (poly.size() < 3) continue;
             markers.put("nation_" + nation.getName() + "_" + (i++),
-                createShapeMarker(nation.getName(), createShape(poly), fill, line, 3, popup));
+                createShapeMarker(nation.getName(), createShape(poly), fill, line, 3, ""));
         }
     }
 
+    // ================================================================
+    //  ГРАНИЦЫ ГОРОДОВ ВНУТРИ НАЦИИ — с попапом
+    // ================================================================
+
     private static void drawNationTownBorders(Nation nation, Map<String, Object> markers) throws Exception {
         List<String> townNames = new ArrayList<>(nation.getTowns());
-        if (townNames.size() < 2) return;
 
         int hex = nation.getColor().getHex();
         int cr = (hex >> 16) & 0xFF, cg = (hex >> 8) & 0xFF, cb = hex & 0xFF;
@@ -258,16 +268,27 @@ public class BlueMapIntegration {
 
             Set<String> townEdges = calcEdges(town.getClaimedChunks());
             List<List<Point>> townPolygons = tracePolygons(townEdges);
-            String townPopup = buildTownPopup(town, nation.getName(), cr, cg, cb);
+            String townPopup = buildTownPopup(town, nation);
 
             int j = 0;
             for (List<Point> poly : townPolygons) {
                 if (poly.size() < 3) continue;
-                markers.put("townborder_" + townName + "_" + (j++),
-                    createShapeMarker(townName, createShape(poly), noFill, townLine, 1, townPopup));
+                if (townNames.size() == 1) {
+                    Object fill = cColor.newInstance(cr, cg, cb, 0.22f);
+                    Object line2 = cColor.newInstance(cr, cg, cb, 1.0f);
+                    markers.put("townborder_" + townName + "_" + (j++),
+                        createShapeMarker(townName, createShape(poly), fill, line2, 3, townPopup));
+                } else {
+                    markers.put("townborder_" + townName + "_" + (j++),
+                        createShapeMarker(townName, createShape(poly), noFill, townLine, 1, townPopup));
+                }
             }
         }
     }
+
+    // ================================================================
+    //  ГОРОДА БЕЗ НАЦИИ
+    // ================================================================
 
     private static void drawStandaloneTown(Town town, Map<String, Object> markers) throws Exception {
         if (town.getClaimedChunks().isEmpty()) return;
@@ -282,7 +303,7 @@ public class BlueMapIntegration {
 
         Object fill = cColor.newInstance(cr, cg, cb, fillAlpha);
         Object line = cColor.newInstance(cr, cg, cb, 1.0f);
-        String popup = buildTownPopup(town, "Независимый город", cr, cg, cb);
+        String popup = buildTownPopup(town, null);
 
         int i = 0;
         for (List<Point> poly : polygons) {
@@ -291,6 +312,10 @@ public class BlueMapIntegration {
                 createShapeMarker(town.getName(), createShape(poly), fill, line, 2, popup));
         }
     }
+
+    // ================================================================
+    //  ИКОНКИ — только картинка, z-index низкий чтобы панель перекрывала
+    // ================================================================
 
     private static void drawTownIcon(Town town, Map<String, Object> markers) throws Exception {
         if (town.getSpawnPos() == null) return;
@@ -308,12 +333,15 @@ public class BlueMapIntegration {
         String base64 = isCapital ? CAPITAL_ICON_BASE64 : TOWN_ICON_BASE64;
         int iconSize = isCapital ? 26 : 14;
 
+        // z-index:1 чтобы панель попапа и игрок были выше
         String html = "<div style=\"" +
             "transform:translate(-50%,-50%);" +
             "width:" + iconSize + "px;" +
             "height:" + iconSize + "px;" +
             "filter:drop-shadow(0 1px 3px rgba(0,0,0,0.7));" +
             "cursor:pointer;" +
+            "z-index:1;" +
+            "position:relative;" +
             "\">";
 
         if (base64 != null) {
@@ -339,6 +367,10 @@ public class BlueMapIntegration {
 
         markers.put("icon_" + town.getName(), mHtmlMarkerBuild.invoke(builder));
     }
+
+    // ================================================================
+    //  ГЕОМЕТРИЯ
+    // ================================================================
 
     private static Set<String> calcEdges(Set<ChunkPos> chunks) {
         Set<String> edges = new HashSet<>();
@@ -401,65 +433,89 @@ public class BlueMapIntegration {
         return mShapeMarkerBuild.invoke(bd);
     }
 
-    private static String buildNationPopup(Nation n, int r, int g, int b) {
-        String c = "rgb(" + r + "," + g + "," + b + ")";
+    // ================================================================
+    //  ПОПАП ГОРОДА
+    //
+    //  Формат:
+    //    Нация: Название
+    //    Город: Название
+    //    ───────────────
+    //    Мэр: Ник (жёлтый)
+    //    Жители: список (белый)
+    // ================================================================
+
+    private static String buildTownPopup(Town town, Nation nation) {
+        String nationName = nation != null ? nation.getName() : "Без нации";
+        String townName = town.getName();
+        String mayorName = getPlayerName(town.getMayor());
+        List<String> memberNames = getMemberNames(town);
+
         StringBuilder sb = new StringBuilder();
-        sb.append("<div style=\"font-family:'Segoe UI',sans-serif;padding:14px;color:#fff;")
-          .append("background:rgba(10,10,15,0.94);border-radius:10px;border:2px solid ").append(c)
-          .append(";min-width:200px;\">");
-        sb.append("<div style=\"font-size:18px;font-weight:bold;color:").append(c)
-          .append("\">🏛 ").append(escapeHtml(n.getName())).append("</div>");
-        sb.append("<hr style=\"border:0;border-top:1px solid #333;margin:8px 0\">");
-        sb.append("<div style=\"font-size:13px;line-height:1.8;\">");
-        sb.append("<div>🏰 Городов: <b style=\"color:#FFD700\">").append(n.getTowns().size()).append("</b></div>");
-        sb.append("<div>👥 Жителей: <b>").append(n.getTotalMembers()).append("</b></div>");
-        sb.append("<div>📍 Территория: <b>").append(n.getTotalChunks()).append("</b> чанков</div>");
-        sb.append("</div>");
-        if (n.getCapitalTown() != null) {
-            sb.append("<div style=\"margin-top:8px;padding:4px 8px;background:rgba(255,215,0,0.1);")
-              .append("border-radius:4px;border-left:3px solid #FFD700;\">")
-              .append("👑 Столица: <b style=\"color:#FFD700\">")
-              .append(escapeHtml(n.getCapitalTown())).append("</b></div>");
-        }
-        if (n.getTowns().size() > 1) {
-            sb.append("<div style=\"margin-top:6px;font-size:11px;color:#888;\">Города: ");
-            int count = 0;
-            for (String tn : n.getTowns()) {
-                if (count > 0) sb.append(", ");
-                if (count >= 8) { sb.append("..."); break; }
-                boolean isCap = tn.equals(n.getCapitalTown());
-                if (isCap) sb.append("<b style=\"color:#FFD700\">");
-                sb.append(escapeHtml(tn));
-                if (isCap) sb.append("</b>");
-                count++;
+
+        sb.append("<div style=\"font-family:'Segoe UI',Arial,sans-serif;\">");
+
+        // Нация: Название
+        sb.append("<center style=\"font-size:120%;font-weight:bold;color:#e6e8f0\">");
+        sb.append("<span style=\"color:#b6b8bf\">Нация: </span>");
+        sb.append("<span style=\"color:#e6e8f0\">").append(escapeHtml(nationName)).append("</span>");
+        sb.append("<br>");
+
+        // Город: Название
+        sb.append("<span style=\"color:#b6b8bf\">Город: </span>");
+        sb.append("<span style=\"color:#e6e8f0\">").append(escapeHtml(townName)).append("</span>");
+        sb.append("</center>");
+
+        // Разделитель
+        sb.append("<hr style=\"border:0;border-top:1px solid #555;margin:8px 0\">");
+
+        // Мэр: Ник
+        sb.append("<span style=\"font-weight:bold;color:#b6b8bf\">Мэр: </span>");
+        sb.append("<span style=\"font-weight:bold;color:#f5c542\">")
+          .append(escapeHtml(mayorName))
+          .append("</span><br>");
+
+        // Жители: список
+        sb.append("<span style=\"font-weight:bold;color:#b6b8bf\">Жители: </span>");
+        sb.append("<span style=\"font-weight:bold;color:#e6e8f0\">");
+
+        if (memberNames.isEmpty()) {
+            sb.append("—");
+        } else {
+            for (int i = 0; i < memberNames.size(); i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(escapeHtml(memberNames.get(i)));
             }
-            sb.append("</div>");
         }
-        if (!n.getWarTargets().isEmpty()) {
-            sb.append("<div style=\"margin-top:8px;padding:4px 8px;background:rgba(255,0,0,0.15);")
-              .append("border-radius:4px;color:#F44;border-left:3px solid #F44;\">")
-              .append("⚔ Война: ").append(escapeHtml(String.join(", ", n.getWarTargets())))
-              .append("</div>");
-        }
+        sb.append("</span>");
+
         sb.append("</div>");
         return sb.toString();
     }
 
-    private static String buildTownPopup(Town t, String nName, int r, int g, int b) {
-        String c = "rgb(" + r + "," + g + "," + b + ")";
-        StringBuilder sb = new StringBuilder();
-        sb.append("<div style=\"font-family:'Segoe UI',sans-serif;padding:10px;color:#fff;")
-          .append("background:rgba(10,10,15,0.94);border-radius:8px;border:1px solid ").append(c).append(";\">");
-        sb.append("<div style=\"font-size:15px;font-weight:bold\">🏘 ").append(escapeHtml(t.getName())).append("</div>");
-        sb.append("<div style=\"color:").append(c).append(";font-size:12px;margin-top:2px;\">").append(escapeHtml(nName)).append("</div>");
-        sb.append("<div style=\"font-size:12px;color:#aaa;margin-top:6px;\">")
-          .append("👥 ").append(t.getMembers().size())
-          .append(" │ 📍 ").append(t.getClaimedChunks().size()).append(" чанков</div>");
-        if (t.isAtWar()) sb.append("<div style=\"color:#F44;margin-top:4px;\">⚔ В СОСТОЯНИИ ВОЙНЫ</div>");
-        if (t.isCaptured()) sb.append("<div style=\"color:#FA0;margin-top:4px;\">🏴 Захвачен: ")
-            .append(escapeHtml(t.getCapturedBy())).append("</div>");
-        sb.append("</div>");
-        return sb.toString();
+    // ================================================================
+    //  ПОЛУЧЕНИЕ НИКОВ ИГРОКОВ
+    // ================================================================
+
+    private static String getPlayerName(UUID playerId) {
+        if (playerId == null) return "—";
+        if (NationsData.getServer() != null) {
+            var player = NationsData.getServer().getPlayerList().getPlayer(playerId);
+            if (player != null) return player.getName().getString();
+            var profile = NationsData.getServer().getProfileCache();
+            if (profile != null) {
+                var opt = profile.get(playerId);
+                if (opt.isPresent()) return opt.get().getName();
+            }
+        }
+        return playerId.toString().substring(0, 8) + "...";
+    }
+
+    private static List<String> getMemberNames(Town town) {
+        List<String> names = new ArrayList<>();
+        for (UUID memberId : town.getMembers()) {
+            names.add(getPlayerName(memberId));
+        }
+        return names;
     }
 
     private static String escapeHtml(String text) {
